@@ -1,47 +1,53 @@
 #!/bin/bash
 # =========================================================
-# CB-Shield Pro (跨境卫士) - 核心定制脚本
-# 适用硬件: Q30 / H3C NX30 Pro (MT7981)
+# CB-Shield Pro (跨境卫士) - V2 终极优化脚本
+# 功能：深度协议栈伪装、IPv6 物理屏蔽、全局流量锁
 # =========================================================
 
-# 1. 基础系统设置
+# 1. 基础系统与品牌设置
 # ---------------------------------------------------------
-# 修改默认 IP 为 192.168.10.1 (避开常见 IP 段，防止冲突)
 sed -i 's/192.168.1.1/192.168.10.1/g' package/base-files/files/bin/config_generate
-# 修改默认主机名为 CB-Shield-Pro
 sed -i 's/ImmortalWrt/CB-Shield-Pro/g' package/base-files/files/bin/config_generate
-# 修改登录后的欢迎语 (Banner)
 sed -i "s/OpenWrt /跨境卫士 v$(date +%Y.%m.%d) /g" package/base-files/files/etc/banner
 
-# 2. UI 品牌化定制
-# ---------------------------------------------------------
-# 强制默认主题为 Design (来自 fanchmwrt 的精华 UI)
+# 强制默认主题为 Design
 sed -i 's/luci-theme-bootstrap/luci-theme-design/g' feeds/luci/collections/luci/Makefile
 
 # 自动化素材替换 (Logo 与 背景)
 DESIGN_STATIC="feeds/luci/themes/luci-theme-design/htdocs/luci-static/design"
 if [ -d "../images" ]; then
-    # 替换左上角透明 Logo
     [ -f "../images/custom_logo.png" ] && cp -f ../images/custom_logo.png $DESIGN_STATIC/img/logo.png
-    # 替换高清登录背景图
     [ -f "../images/custom_bg.jpg" ] && cp -f ../images/custom_bg.jpg $DESIGN_STATIC/img/bg.jpg
 fi
 
-# 3. 核心安全防护 (去指纹与防泄露)
+# 2. 核心安全防护 (去指纹与防泄露)
 # ---------------------------------------------------------
 cat <<EOF >> package/base-files/files/etc/firewall.user
-# [去指纹] 强制修改传出包 TTL 为 128 (模拟标准 Windows 10/11 系统)
+# [去指纹] 强制修改 TTL 为 128 (模拟标准 Windows)
 iptables -t mangle -A POSTROUTING -j TTL --ttl-set 128
-# [防泄露] 强行屏蔽 WebRTC 常用探测端口 (3478, 19302)
+# [防泄露] 屏蔽 WebRTC 探测端口
 iptables -A FORWARD -p udp --dport 3478 -j DROP
 iptables -A FORWARD -p udp --dport 19302 -j DROP
-# [传输优化] 锁定 MSS 为 1452，模拟真实住宅宽带流量特征
+# [传输优化] 锁定 MSS 为 1452
 iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1452
 EOF
 
-# 4. 硬件伪装 (WAN 口 MAC 随机化)
+# 3. 【V2 新增】协议栈深度伪装与 IPv6 屏蔽
 # ---------------------------------------------------------
-# 模拟常见的 Realtek 网卡前缀，防止平台通过 OUI 识别路由器品牌
+# 禁用 IPv6 以彻底杜绝地理位置泄露
+sed -i 's/option disable_ipv6 .*/option disable_ipv6 1/g' package/base-files/files/etc/config/network
+cat <<EOF >> package/base-files/files/etc/sysctl.conf
+# 模拟 Windows TCP 堆栈特征，关闭 Linux 时间戳特征
+net.ipv4.tcp_timestamps = 0
+net.ipv4.tcp_window_scaling = 1
+# 彻底关闭 IPv6
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+EOF
+
+# 4. 【V2 新增】硬件特征混淆 (随机 MAC 与 DHCP 伪装)
+# ---------------------------------------------------------
+# 随机化 WAN 口 MAC，并模拟 Windows DHCP 请求特征
 cat <<EOF >> package/base-files/files/etc/config/network
 config event 'wan_mac_gen'
 	option target 'wan'
@@ -49,9 +55,8 @@ config event 'wan_mac_gen'
 	option script 'ip link set dev eth1 address 52:54:00:\$(hexdump -n 3 -e "3/1 \"%02x:\"" /dev/urandom | sed "s/:\$//")'
 EOF
 
-# 5. 可视化环境监测工具
+# 5. 环境监测与看板集成
 # ---------------------------------------------------------
-# 创建后台检测脚本
 mkdir -p package/base-files/files/usr/bin
 cat <<'EOF' > package/base-files/files/usr/bin/check_risk.sh
 #!/bin/sh
@@ -60,19 +65,15 @@ IP_INFO=$(curl -s http://ip-api.com/json/?fields=61440)
 IS_PROXY=$(echo $IP_INFO | grep -o '"proxy":true')
 IS_HOSTING=$(echo $IP_INFO | grep -o '"hosting":true')
 if [ -n "$IS_PROXY" ] || [ -n "$IS_HOSTING" ]; then
-    echo "<span style='color:red;font-weight:bold;'>⚠️ 风险环境：检测到机房 IP 或代理特征，请勿操作账号！</span>" > /tmp/ip_risk_status
+    echo "<span style='color:red;font-weight:bold;'>⚠️ 风险环境：检测到机房 IP，请勿操作账号！</span>" > /tmp/ip_risk_status
 else
-    echo "<span style='color:green;font-weight:bold;'>✅ 安全环境：原生住宅 IP，适合跨境运营。</span>" > /tmp/ip_risk_status
+    echo "<span style='color:green;font-weight:bold;'>✅ 安全环境：原生住宅 IP，适合运营。</span>" > /tmp/ip_risk_status
 fi
 EOF
 chmod +x package/base-files/files/usr/bin/check_risk.sh
-
-# 设置定时任务，每 5 分钟更新一次环境评分
 echo "*/5 * * * * /usr/bin/check_risk.sh" >> package/base-files/files/etc/crontabs/root
 
-# 6. LuCI 首页看板集成 (可视化展示)
-# ---------------------------------------------------------
-# 修改首页模板，插入“跨境环境安全检测”卡片
+# 首页可视化卡片注入逻辑 (LuCI 看板)
 INDEX_HTML="feeds/luci/modules/luci-mod-status/luasrc/view/admin_status/index.htm"
 sed -i '/<%:System%>/i \
 <fieldset class="cbi-section"> \
@@ -96,7 +97,7 @@ sed -i '/<%:System%>/i \
 	); \
 </script>' $INDEX_HTML
 
-# 创建后端接口供前端调用
+# 后端接口 API
 mkdir -p package/base-files/files/usr/lib/lua/luci/controller/admin/
 cat <<EOF > package/base-files/files/usr/lib/lua/luci/controller/admin/custom_status.lua
 module("luci.controller.admin.custom_status", package.seeall)
@@ -112,5 +113,5 @@ function get_ip_status()
 end
 EOF
 
-# 7. 清理指纹残留
-sed -i 's/DISTRIB_REVISION=.*/DISTRIB_REVISION="CB-Shield-v2026"/g' package/base-files/files/etc/openwrt_release
+# 终极指纹清理
+sed -i 's/DISTRIB_REVISION=.*/DISTRIB_REVISION="CB-Shield-Pro-V2"/g' package/base-files/files/etc/openwrt_release
