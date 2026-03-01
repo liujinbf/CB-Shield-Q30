@@ -11,33 +11,44 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Init Environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
           sudo apt-get -y install build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev
 
       - name: Clone Source
         run: |
+          # 克隆 ImmortalWrt 源码
           git clone --depth 1 https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 master
-          ln -s master/scripts/feeds feeds
 
       - name: Update Feeds
         run: |
+          # 修复路径依赖问题，进入 master 目录执行
           chmod +x diy-part1.sh
+          cp diy-part1.sh master/
+          cd master
           ./diy-part1.sh
-          ./feeds update -a
-          ./feeds install -a
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
       - name: Load Config & DIY
         run: |
+          # 加载 seed.config 并执行 V2 版定制脚本
           cp seed.config master/.config
           chmod +x diy-part2.sh
-          cd master && ../diy-part2.sh
+          cp diy-part2.sh master/
+          # 将 images 文件夹也复制进去，确保图片能被替换
+          [ -d "images" ] && cp -r images master/
+          cd master
+          ./diy-part2.sh
           make defconfig
 
       - name: Download & Compile
         run: |
           cd master
           make download -j8
+          # 使用多核编译，如果失败则切换到单核并显示详细日志
           make -j$(nproc) || make -j1 V=s
 
       - name: Upload Firmware
