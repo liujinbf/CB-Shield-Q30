@@ -61,5 +61,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 修正后的通配符路径，确保能上传生成的所有固件文件
+          # 【核心修复】：使用多级通配符，确保能抓取到 master/bin/targets/ 目录下所有子文件夹中的大体积 bin 固件
           path: master/bin/targets/*/*/*.bin
