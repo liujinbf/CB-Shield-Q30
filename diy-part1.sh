@@ -1,7 +1,3 @@
 #!/bin/bash
-# 1. 添加 PassWall 核心源
-echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall' >>feeds.conf.default
-echo 'src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall-luci' >>feeds.conf.default
-
-# 3. 添加额外依赖包源
+# 1. 添加核心依赖包源 (此源已包含 PassWall, Design 主题等所有必需组件)
 echo 'src-git kenzok8 https://github.com/kenzok8/openwrt-packages' >>feeds.conf.default
