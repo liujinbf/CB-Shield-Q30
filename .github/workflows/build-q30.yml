@@ -19,12 +19,10 @@ jobs:
 
       - name: Clone Source
         run: |
-          # 克隆 ImmortalWrt 源码
           git clone --depth 1 https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 master
 
       - name: Update Feeds
         run: |
-          # 修复路径依赖问题，进入 master 目录执行
           chmod +x diy-part1.sh
           cp diy-part1.sh master/
           cd master
@@ -34,11 +32,10 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 加载 seed.config 并执行 V2 版定制脚本
           cp seed.config master/.config
           chmod +x diy-part2.sh
           cp diy-part2.sh master/
-          # 将 images 文件夹也复制进去，确保图片能被替换
+          # 确保图片文件夹被同步到源码目录
           [ -d "images" ] && cp -r images master/
           cd master
           ./diy-part2.sh
@@ -48,7 +45,6 @@ jobs:
         run: |
           cd master
           make download -j8
-          # 使用多核编译，如果失败则切换到单核并显示详细日志
           make -j$(nproc) || make -j1 V=s
 
       - name: Upload Firmware
