@@ -35,7 +35,6 @@ jobs:
           cp seed.config master/.config
           chmod +x diy-part2.sh
           cp diy-part2.sh master/
-          # 确保图片文件夹被同步到源码目录
           [ -d "images" ] && cp -r images master/
           cd master
           ./diy-part2.sh
@@ -50,5 +49,6 @@ jobs:
       - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
-          name: CB-Shield-Q30-Firmware
-          path: master/bin/targets/mediatek/mt7981/*.bin
+          name: CB-Shield-Pro-Firmware
+          # 修正后的通配符路径，确保抓取所有生成的固件
+          path: master/bin/targets/*/*/*.bin
