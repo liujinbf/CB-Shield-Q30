@@ -1,0 +1,47 @@
+name: Build CrossBorderShield Q30
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Init Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev
+
+      - name: Clone Source
+        run: |
+          git clone --depth 1 https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 master
+          ln -s master/scripts/feeds feeds
+
+      - name: Update Feeds
+        run: |
+          chmod +x diy-part1.sh
+          ./diy-part1.sh
+          ./feeds update -a
+          ./feeds install -a
+
+      - name: Load Config & DIY
+        run: |
+          cp seed.config master/.config
+          chmod +x diy-part2.sh
+          cd master && ../diy-part2.sh
+          make defconfig
+
+      - name: Download & Compile
+        run: |
+          cd master
+          make download -j8
+          make -j$(nproc) || make -j1 V=s
+
+      - name: Upload Firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: CB-Shield-Q30-Firmware
+          path: master/bin/targets/mediatek/mt7981/*.bin
