@@ -115,3 +115,28 @@ EOF
 
 # 终极指纹清理
 sed -i 's/DISTRIB_REVISION=.*/DISTRIB_REVISION="CB-Shield-Pro-V2"/g' package/base-files/files/etc/openwrt_release
+# 12. 【安全核心】全局流量锁 (Kill Switch)
+# 作用：代理掉线即断网，严防真实 IP 泄露
+mkdir -p package/base-files/files/usr/bin
+cat <<'EOF' > package/base-files/files/usr/bin/proxy_watchdog.sh
+#!/bin/sh
+while true; do
+    # 检测 Google 或 亚马逊 是否可达 (3秒超时)
+    if ! curl -I -s --connect-timeout 3 https://www.google.com > /dev/null; then
+        # 如果不可达，且 PassWall 进程还在跑，说明节点失效，执行断网
+        echo "⚠️ 检测到代理失效，正在实施网络封锁..."
+        iptables -I FORWARD -p tcp -j REJECT
+        iptables -I FORWARD -p udp -j REJECT
+        # 写入风险看板状态
+        echo "<span style='color:red;font-weight:bold;'>🚫 保护性断网：节点已掉线，流量已拦截！</span>" > /tmp/ip_risk_status
+    else
+        # 恢复连接
+        iptables -D FORWARD -p tcp -j REJECT 2>/dev/null
+        iptables -D FORWARD -p udp -j REJECT 2>/dev/null
+    fi
+    sleep 10
+done
+EOF
+chmod +x package/base-files/files/usr/bin/proxy_watchdog.sh
+# 设置开机自启
+sed -i '/exit 0/i /usr/bin/proxy_watchdog.sh &' package/base-files/files/etc/rc.local
