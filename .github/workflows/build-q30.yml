@@ -43,12 +43,24 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          cp seed.config master/.config
+          # 1. 复制你的基础配置（如果存在）
+          [ -f "seed.config" ] && cp seed.config master/.config || touch master/.config
+          
+          # 2. 【核心修复】强制指定 CPU 架构为 MT7981 和设备为 Q30
+          cat <<EOF >> master/.config
+          CONFIG_TARGET_mediatek=y
+          CONFIG_TARGET_mediatek_mt7981=y
+          CONFIG_TARGET_mediatek_mt7981_DEVICE_jcg_q30=y
+          EOF
+          
+          # 3. 运行你的定制脚本并同步素材
           chmod +x diy-part2.sh
           cp diy-part2.sh master/
           [ -d "images" ] && cp -r images master/
           cd master
           ./diy-part2.sh
+          
+          # 4. 生成并补全最终配置 (此时系统已明确知道要给 Q30 编译)
           make defconfig
 
       - name: Download & Compile
@@ -61,5 +73,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 【核心修复】：使用多级通配符，确保能抓取到 master/bin/targets/ 目录下所有子文件夹中的大体积 bin 固件
-          path: master/bin/targets/*/*/*.bin
+          # 移除后缀限制，抓取 targets 目录下的所有产物，确保拿到 30MB+ 的固件包
+          path: master/bin/targets/*/*/*
