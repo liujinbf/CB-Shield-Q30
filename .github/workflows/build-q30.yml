@@ -28,9 +28,10 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          key: ${{ runner.os }}-openwrt-${{ hashFiles('seed.config') }}
+          # 【核心修复 1】：更改缓存 Key，彻底抛弃之前错误的香蕉派缓存
+          key: ${{ runner.os }}-openwrt-q30-v1-${{ hashFiles('diy-part2.sh') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-
+            ${{ runner.os }}-openwrt-q30-v1-
 
       - name: Update Feeds
         run: |
@@ -43,24 +44,20 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 1. 复制你的基础配置（如果存在）
-          [ -f "seed.config" ] && cp seed.config master/.config || touch master/.config
+          # 【核心修复 2】：无视任何旧的 seed.config，强制清空并写入纯净的 Q30 架构指令
+          echo "CONFIG_TARGET_mediatek=y" > master/.config
+          echo "CONFIG_TARGET_mediatek_mt7981=y" >> master/.config
+          echo "CONFIG_TARGET_mediatek_mt7981_DEVICE_jcg_q30=y" >> master/.config
           
-          # 2. 【核心修复】强制指定 CPU 架构为 MT7981 和设备为 Q30
-          cat <<EOF >> master/.config
-          CONFIG_TARGET_mediatek=y
-          CONFIG_TARGET_mediatek_mt7981=y
-          CONFIG_TARGET_mediatek_mt7981_DEVICE_jcg_q30=y
-          EOF
+          # 清理可能存在的旧临时文件，防止架构串联
+          rm -rf master/tmp
           
-          # 3. 运行你的定制脚本并同步素材
           chmod +x diy-part2.sh
           cp diy-part2.sh master/
           [ -d "images" ] && cp -r images master/
           cd master
           ./diy-part2.sh
           
-          # 4. 生成并补全最终配置 (此时系统已明确知道要给 Q30 编译)
           make defconfig
 
       - name: Download & Compile
@@ -73,5 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 移除后缀限制，抓取 targets 目录下的所有产物，确保拿到 30MB+ 的固件包
-          path: master/bin/targets/*/*/*
+          # 限定只抓取 mt7981 目录下的 sysupgrade 和 factory 固件，避免打包无用文件
+          path: |
+            master/bin/targets/mediatek/mt7981/*sysupgrade.bin
+            master/bin/targets/mediatek/mt7981/*factory.bin
