@@ -28,10 +28,10 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          # 更换缓存 Key，强制系统重新读取正确的配置
-          key: ${{ runner.os }}-openwrt-q30-v2-${{ hashFiles('diy-part2.sh') }}
+          # 更换缓存 Key 为 v3，强制系统抛弃所有旧的香蕉派缓存
+          key: ${{ runner.os }}-openwrt-q30-v3-${{ hashFiles('diy-part2.sh') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-q30-v2-
+            ${{ runner.os }}-openwrt-q30-v3-
 
       - name: Update Feeds
         run: |
@@ -44,10 +44,10 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 【核心修正】：使用官方标准的 filogic 架构代号，精准锁定 Q30 设备
+          # 【核心修复 1】：使用官方源码中真实的设备代号 jcg_q30_pro
           echo "CONFIG_TARGET_mediatek=y" > master/.config
           echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
-          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_jcg_q30=y" >> master/.config
+          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_jcg_q30_pro=y" >> master/.config
           
           rm -rf master/tmp
           
@@ -69,5 +69,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 【双重保险】：不管子目录叫什么，全盘搜索并只打包真正的刷机固件 (sysupgrade)
-          path: master/bin/targets/*/*/*sysupgrade.bin
+          # 【核心修复 2】：使用 *sysupgrade.* 兼容 .itb 后缀的固件
+          path: master/bin/targets/*/*/*sysupgrade.*
