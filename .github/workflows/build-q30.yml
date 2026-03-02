@@ -28,10 +28,10 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          # 【核心修复 1】：更改缓存 Key，彻底抛弃之前错误的香蕉派缓存
-          key: ${{ runner.os }}-openwrt-q30-v1-${{ hashFiles('diy-part2.sh') }}
+          # 更换缓存 Key，强制系统重新读取正确的配置
+          key: ${{ runner.os }}-openwrt-q30-v2-${{ hashFiles('diy-part2.sh') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-q30-v1-
+            ${{ runner.os }}-openwrt-q30-v2-
 
       - name: Update Feeds
         run: |
@@ -44,12 +44,11 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 【核心修复 2】：无视任何旧的 seed.config，强制清空并写入纯净的 Q30 架构指令
+          # 【核心修正】：使用官方标准的 filogic 架构代号，精准锁定 Q30 设备
           echo "CONFIG_TARGET_mediatek=y" > master/.config
-          echo "CONFIG_TARGET_mediatek_mt7981=y" >> master/.config
-          echo "CONFIG_TARGET_mediatek_mt7981_DEVICE_jcg_q30=y" >> master/.config
+          echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
+          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_jcg_q30=y" >> master/.config
           
-          # 清理可能存在的旧临时文件，防止架构串联
           rm -rf master/tmp
           
           chmod +x diy-part2.sh
@@ -70,7 +69,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 限定只抓取 mt7981 目录下的 sysupgrade 和 factory 固件，避免打包无用文件
-          path: |
-            master/bin/targets/mediatek/mt7981/*sysupgrade.bin
-            master/bin/targets/mediatek/mt7981/*factory.bin
+          # 【双重保险】：不管子目录叫什么，全盘搜索并只打包真正的刷机固件 (sysupgrade)
+          path: master/bin/targets/*/*/*sysupgrade.bin
