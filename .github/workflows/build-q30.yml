@@ -70,11 +70,9 @@ jobs:
           make download -j8
           make -j$(nproc) || make -j1 V=s
 
-      - name: Upload Firmware
+      -  name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 【终极抓取策略】：不管叫什么名字，把所有的 .bin 和 .itb 固件全部打包带走
-          path: |
-            master/bin/targets/*/*/*.bin
-            master/bin/targets/*/*/*.itb
+          # 终极抓取策略：不猜后缀，不限层级，直接把 targets 文件夹整个打包带走！
+          path: master/bin/targets/
