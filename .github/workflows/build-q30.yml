@@ -29,7 +29,7 @@ jobs:
             master/build_dir
             master/dl
           key: ${{ runner.os }}-openwrt-q30-v4-${{ hashFiles('diy-part2.sh') }}
-          # 继承上一轮跑完的底层环境缓存，实现极速编译
+          # 继承刚才跑完的成功缓存，实现极速打包
           restore-keys: |
             ${{ runner.os }}-openwrt-q30-v4-
             ${{ runner.os }}-openwrt-q30-v3-
@@ -45,13 +45,13 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 1. 锁定 Q30 Pro 架构
+          # 1. 绝对锁定 Q30 Pro 架构
           echo "CONFIG_TARGET_mediatek=y" > master/.config
           echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
           echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
           echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_jcg_q30_pro=y" >> master/.config
           
-          # 2. 【核心修复】：强制关闭软件包加密签名，绕过 key-build 报错
+          # 2. 强制关闭软件包加密签名，绕过报错
           echo "CONFIG_SIGNED_PACKAGES=n" >> master/.config
           
           rm -rf master/tmp
@@ -74,4 +74,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          path: master/bin/targets/*/*/*sysupgrade.*
+          # 【终极抓取策略】：不管叫什么名字，把所有的 .bin 和 .itb 固件全部打包带走
+          path: |
+            master/bin/targets/*/*/*.bin
+            master/bin/targets/*/*/*.itb
