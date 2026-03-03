@@ -44,10 +44,11 @@ jobs:
 
       - name: Load Config & DIY
         run: |
+          # 【绝对修正】：精确拼写带连字符的 jcg_q30-pro
           echo "CONFIG_TARGET_mediatek=y" > master/.config
           echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
           echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
-          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_jcg_q30_pro=y" >> master/.config
+          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_jcg_q30-pro=y" >> master/.config
           
           echo "CONFIG_SIGNED_PACKAGES=n" >> master/.config
           
@@ -71,5 +72,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 【最终修改】：不限制任何文件名和后缀，直接打包整个 targets 目录
+          # 保留全盘抓取，确保万无一失
           path: master/bin/targets/
