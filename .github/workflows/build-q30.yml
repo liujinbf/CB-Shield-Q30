@@ -28,8 +28,10 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          key: ${{ runner.os }}-openwrt-q30-v4-${{ hashFiles('diy-part2.sh') }}
+          key: ${{ runner.os }}-openwrt-q30-v5-${{ hashFiles('diy-part2.sh') }}
+          # 继承之前的极速缓存
           restore-keys: |
+            ${{ runner.os }}-openwrt-q30-v5-
             ${{ runner.os }}-openwrt-q30-v4-
             ${{ runner.os }}-openwrt-q30-v3-
 
@@ -44,12 +46,26 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 【绝对修正】：精确拼写带连字符的 jcg_q30-pro
+          # 1. 锁定 Filogic 基础架构
           echo "CONFIG_TARGET_mediatek=y" > master/.config
           echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
           echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
-          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_jcg_q30-pro=y" >> master/.config
           
+          # 2. 【核心大招】：全局动态扫描并提取 Q30 的真实代号
+          echo "正在扫描底层源码，寻找 Q30 对应的真实设备代码..."
+          Q30_PROFILE=$(grep -r -i -h -E '^define[[:space:]]+Device/.*q30' master/target/linux/mediatek/image/ | head -n 1 | awk -F'/' '{print $2}' | tr -d ' \r\n')
+          
+          # 如果源码里根本没有 Q30，立刻报错停止！
+          if [ -z "$Q30_PROFILE" ]; then
+              echo "::error::【致命错误】当前克隆的 ImmortalWrt 源码中，根本不存在 JCG Q30 / Q30 Pro 的设备支持代码！"
+              echo "::error::这就是为什么之前一直无法生成固件的原因。源码里没有这台设备！"
+              exit 1
+          fi
+          
+          echo "::notice::太棒了！源码扫描成功！真实的设备代号为: $Q30_PROFILE"
+          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_${Q30_PROFILE}=y" >> master/.config
+          
+          # 3. 绕过签名报错
           echo "CONFIG_SIGNED_PACKAGES=n" >> master/.config
           
           rm -rf master/tmp
@@ -61,6 +77,9 @@ jobs:
           ./diy-part2.sh
           
           make defconfig
+          
+          echo "=== 检查最终生成的设备配置 ==="
+          grep "CONFIG_TARGET_DEVICE_" .config
 
       - name: Download & Compile
         run: |
@@ -72,5 +91,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 保留全盘抓取，确保万无一失
           path: master/bin/targets/
