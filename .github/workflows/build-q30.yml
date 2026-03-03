@@ -28,9 +28,10 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          # 更换缓存 Key 为 v3，强制系统抛弃所有旧的香蕉派缓存
-          key: ${{ runner.os }}-openwrt-q30-v3-${{ hashFiles('diy-part2.sh') }}
+          key: ${{ runner.os }}-openwrt-q30-v4-${{ hashFiles('diy-part2.sh') }}
+          # 继承上一轮 49 分钟跑完的底层环境缓存，实现极速编译
           restore-keys: |
+            ${{ runner.os }}-openwrt-q30-v4-
             ${{ runner.os }}-openwrt-q30-v3-
 
       - name: Update Feeds
@@ -44,10 +45,11 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 【核心修复 1】：使用官方源码中真实的设备代号 jcg_q30_pro
+          # 【绝对核心修正】：开启多设备选择权，并严丝合缝地锁定 Q30 Pro Kconfig 变量
           echo "CONFIG_TARGET_mediatek=y" > master/.config
           echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
-          echo "CONFIG_TARGET_mediatek_filogic_DEVICE_jcg_q30_pro=y" >> master/.config
+          echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
+          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_jcg_q30_pro=y" >> master/.config
           
           rm -rf master/tmp
           
@@ -69,5 +71,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 【核心修复 2】：使用 *sysupgrade.* 兼容 .itb 后缀的固件
           path: master/bin/targets/*/*/*sysupgrade.*
