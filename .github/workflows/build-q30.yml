@@ -29,7 +29,7 @@ jobs:
             master/build_dir
             master/dl
           key: ${{ runner.os }}-openwrt-q30-v4-${{ hashFiles('diy-part2.sh') }}
-          # 继承刚才跑完的成功缓存，实现极速打包
+          # 继承上一轮已经跑完的成功缓存，实现极速打包
           restore-keys: |
             ${{ runner.os }}-openwrt-q30-v4-
             ${{ runner.os }}-openwrt-q30-v3-
@@ -70,9 +70,11 @@ jobs:
           make download -j8
           make -j$(nproc) || make -j1 V=s
 
-      -  name: Upload Firmware
+      - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
           name: CB-Shield-Pro-Firmware
-          # 终极抓取策略：不猜后缀，不限层级，直接把 targets 文件夹整个打包带走！
-          path: master/bin/targets/
+          # 【终极抓取策略】：不管叫什么名字，把所有的 .bin 和 .itb 固件全部打包带走，防止漏抓！
+          path: |
+            master/bin/targets/*/*/*.bin
+            master/bin/targets/*/*/*.itb
