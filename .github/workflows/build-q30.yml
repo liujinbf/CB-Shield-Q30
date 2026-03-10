@@ -1,4 +1,4 @@
-name: Build CrossBorderShield Q30 (Kwrt Core)
+name: Build CrossBorderShield Q30 (Hanwckf Core)
 
 on:
   workflow_dispatch:
@@ -19,7 +19,8 @@ jobs:
 
       - name: Clone Source
         run: |
-          git clone --depth 1 https://github.com/kiddin9/Kwrt.git master
+          # 【核心替换】：拉取 H大 专为 MT7981 优化的闭源驱动级源码库
+          git clone --depth 1 https://github.com/hanwckf/immortalwrt-mt798x.git -b openwrt-21.02 master
 
       - name: Cache
         uses: actions/cache@v4
@@ -28,9 +29,9 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          key: ${{ runner.os }}-kwrt-q30-v1-${{ hashFiles('diy-part2.sh') }}
+          key: ${{ runner.os }}-hanwckf-q30-v1-${{ hashFiles('diy-part2.sh') }}
           restore-keys: |
-            ${{ runner.os }}-kwrt-q30-v1-
+            ${{ runner.os }}-hanwckf-q30-v1-
 
       - name: Update Feeds
         run: |
@@ -43,15 +44,14 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 【核心修复】：彻底移除扫描脚本，直接硬编码锁定底层架构与设备代号
+          # 1. 锁定 H大 源码下的 MT7981 架构
           echo "CONFIG_TARGET_mediatek=y" > master/.config
-          echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
+          echo "CONFIG_TARGET_mediatek_mt7981=y" >> master/.config
+          
+          # 2. 【无敌模式】：开启全量打包。直接生成该目录下所有支持的路由器固件，绝不落空！
           echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
+          echo "CONFIG_TARGET_ALL_PROFILES=y" >> master/.config
           
-          # 直接指定 Kwrt 源码中完美的 Q30 Pro 配置
-          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_jcg_q30-pro=y" >> master/.config
-          
-          # 关闭签名校验
           echo "CONFIG_SIGNED_PACKAGES=n" >> master/.config
           
           rm -rf master/tmp
@@ -73,5 +73,5 @@ jobs:
       - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
-          name: CB-Shield-Pro-Kwrt-Firmware
+          name: CB-Shield-Pro-Hanwckf-Firmware
           path: master/bin/targets/
