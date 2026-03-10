@@ -1,4 +1,4 @@
-name: Build CrossBorderShield Q30
+name: Build CrossBorderShield Q30 (Kwrt Core)
 
 on:
   workflow_dispatch:
@@ -19,7 +19,8 @@ jobs:
 
       - name: Clone Source
         run: |
-          git clone --depth 1 https://github.com/immortalwrt/immortalwrt -b openwrt-23.05 master
+          # 【核心替换】：直接拉取完美兼容你硬件的 Kwrt 源码
+          git clone --depth 1 https://github.com/kiddin9/Kwrt.git master
 
       - name: Cache
         uses: actions/cache@v4
@@ -28,12 +29,10 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          key: ${{ runner.os }}-openwrt-q30-v5-${{ hashFiles('diy-part2.sh') }}
-          # 继承之前的极速缓存
+          # 这是一个全新的源码库，我们需要建立全新的 v1 缓存
+          key: ${{ runner.os }}-kwrt-q30-v1-${{ hashFiles('diy-part2.sh') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-q30-v5-
-            ${{ runner.os }}-openwrt-q30-v4-
-            ${{ runner.os }}-openwrt-q30-v3-
+            ${{ runner.os }}-kwrt-q30-v1-
 
       - name: Update Feeds
         run: |
@@ -46,26 +45,22 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          # 1. 锁定 Filogic 基础架构
-          echo "CONFIG_TARGET_mediatek=y" > master/.config
-          echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
-          echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
-          
-          # 2. 【核心大招】：全局动态扫描并提取 Q30 的真实代号
-          echo "正在扫描底层源码，寻找 Q30 对应的真实设备代码..."
+          echo "正在扫描 Kwrt 源码中的 Q30 Pro 专属代号..."
           Q30_PROFILE=$(grep -r -i -h -E '^define[[:space:]]+Device/.*q30' master/target/linux/mediatek/image/ | head -n 1 | awk -F'/' '{print $2}' | tr -d ' \r\n')
           
-          # 如果源码里根本没有 Q30，立刻报错停止！
           if [ -z "$Q30_PROFILE" ]; then
-              echo "::error::【致命错误】当前克隆的 ImmortalWrt 源码中，根本不存在 JCG Q30 / Q30 Pro 的设备支持代码！"
-              echo "::error::这就是为什么之前一直无法生成固件的原因。源码里没有这台设备！"
+              echo "::error::未在 Kwrt 源码中找到 Q30 配置！"
               exit 1
           fi
           
-          echo "::notice::太棒了！源码扫描成功！真实的设备代号为: $Q30_PROFILE"
+          echo "::notice::成功锁定 Kwrt 专属设备代号: $Q30_PROFILE"
+          
+          echo "CONFIG_TARGET_mediatek=y" > master/.config
+          echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
+          echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
           echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_${Q30_PROFILE}=y" >> master/.config
           
-          # 3. 绕过签名报错
+          # 关闭签名
           echo "CONFIG_SIGNED_PACKAGES=n" >> master/.config
           
           rm -rf master/tmp
@@ -77,9 +72,6 @@ jobs:
           ./diy-part2.sh
           
           make defconfig
-          
-          echo "=== 检查最终生成的设备配置 ==="
-          grep "CONFIG_TARGET_DEVICE_" .config
 
       - name: Download & Compile
         run: |
@@ -90,5 +82,5 @@ jobs:
       - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
-          name: CB-Shield-Pro-Firmware
+          name: CB-Shield-Pro-Kwrt-Firmware
           path: master/bin/targets/
