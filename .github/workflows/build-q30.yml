@@ -1,4 +1,4 @@
-name: Build CrossBorderShield Q30 (Hanwckf Core)
+name: Build CrossBorderShield Q30 Pro (ImageBuilder)
 
 on:
   workflow_dispatch:
@@ -7,71 +7,55 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Init Environment
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          sudo apt-get -y install build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev
+          sudo apt-get -y install build-essential libncurses5-dev libncursesw5-dev \
+            zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip python3
 
-      - name: Clone Source
+      - name: Download Kiddin9 ImageBuilder
         run: |
-          # 【核心替换】：拉取 H大 专为 MT7981 优化的闭源驱动级源码库
-          git clone --depth 1 https://github.com/hanwckf/immortalwrt-mt798x.git -b openwrt-21.02 master
+          echo "正在下载完美匹配的 MT7981 底层驱动镜像构建器..."
+          wget https://dl.openwrt.ai/latest/targets/mediatek/mt7981/openwrt-imagebuilder-mediatek-mt7981.Linux-x86_64.tar.xz
+          tar -Jxf openwrt-imagebuilder-mediatek-mt7981.Linux-x86_64.tar.xz
+          mv openwrt-imagebuilder-mediatek-mt7981.Linux-x86_64 imagebuilder
 
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            master/staging_dir
-            master/build_dir
-            master/dl
-          key: ${{ runner.os }}-hanwckf-q30-v1-${{ hashFiles('diy-part2.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-hanwckf-q30-v1-
-
-      - name: Update Feeds
+      - name: Inject Custom Settings & Security Scripts
         run: |
-          chmod +x diy-part1.sh
-          cp diy-part1.sh master/
-          cd master
-          ./diy-part1.sh
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          cd imagebuilder
+          # 创建自定义文件注入目录
+          mkdir -p files/etc/uci-defaults
+          mkdir -p files/etc/config
+          
+          # 1. 注入核心配置：首次开机自动将 LAN 口 IP 修改为 192.168.6.1 (防原厂 IP 冲突)
+          cat << 'EOF' > files/etc/uci-defaults/99-custom-ip
+          #!/bin/sh
+          uci set network.lan.ipaddr='192.168.6.1'
+          uci commit network
+          exit 0
+          EOF
+          chmod +x files/etc/uci-defaults/99-custom-ip
+          
+          # 这里可以随时增加其他的防关联配置注入（比如固化 MAC 地址等）
 
-      - name: Load Config & DIY
+      - name: Build Pure Firmware
         run: |
-          # 1. 锁定 H大 源码下的 MT7981 架构
-          echo "CONFIG_TARGET_mediatek=y" > master/.config
-          echo "CONFIG_TARGET_mediatek_mt7981=y" >> master/.config
+          cd imagebuilder
+          echo "开始极速打包纯净版固件..."
           
-          # 2. 【无敌模式】：开启全量打包。直接生成该目录下所有支持的路由器固件，绝不落空！
-          echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
-          echo "CONFIG_TARGET_ALL_PROFILES=y" >> master/.config
-          
-          echo "CONFIG_SIGNED_PACKAGES=n" >> master/.config
-          
-          rm -rf master/tmp
-          
-          chmod +x diy-part2.sh
-          cp diy-part2.sh master/
-          [ -d "images" ] && cp -r images master/
-          cd master
-          ./diy-part2.sh
-          
-          make defconfig
+          # PACKAGES 参数说明：
+          # 带有减号 (-) 的表示从底包中强行剔除这些臃肿插件，保证系统极度纯净稳定
+          # PROFILE="jcg_q30-pro" 精准锁定硬件代号
+          make image PROFILE="jcg_q30-pro" \
+            PACKAGES="-luci-app-docker -dockerd -docker -luci-app-dockerman \
+            -luci-app-adguardhome -luci-app-unblockneteasemusic \
+            -luci-app-qbittorrent -luci-app-transmission" \
+            FILES="files"
 
-      - name: Download & Compile
-        run: |
-          cd master
-          make download -j8
-          make -j$(nproc) || make -j1 V=s
-
-      - name: Upload Firmware
+      - name: Upload Firmware Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CB-Shield-Pro-Hanwckf-Firmware
-          path: master/bin/targets/
+          name: CB-Shield-Q30-Pro-Pure-Firmware
+          path: imagebuilder/bin/targets/mediatek/mt7981/*sysupgrade.bin
