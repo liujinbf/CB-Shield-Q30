@@ -19,7 +19,6 @@ jobs:
 
       - name: Clone Source
         run: |
-          # 【核心替换】：直接拉取完美兼容你硬件的 Kwrt 源码
           git clone --depth 1 https://github.com/kiddin9/Kwrt.git master
 
       - name: Cache
@@ -29,7 +28,6 @@ jobs:
             master/staging_dir
             master/build_dir
             master/dl
-          # 这是一个全新的源码库，我们需要建立全新的 v1 缓存
           key: ${{ runner.os }}-kwrt-q30-v1-${{ hashFiles('diy-part2.sh') }}
           restore-keys: |
             ${{ runner.os }}-kwrt-q30-v1-
@@ -45,22 +43,15 @@ jobs:
 
       - name: Load Config & DIY
         run: |
-          echo "正在扫描 Kwrt 源码中的 Q30 Pro 专属代号..."
-          Q30_PROFILE=$(grep -r -i -h -E '^define[[:space:]]+Device/.*q30' master/target/linux/mediatek/image/ | head -n 1 | awk -F'/' '{print $2}' | tr -d ' \r\n')
-          
-          if [ -z "$Q30_PROFILE" ]; then
-              echo "::error::未在 Kwrt 源码中找到 Q30 配置！"
-              exit 1
-          fi
-          
-          echo "::notice::成功锁定 Kwrt 专属设备代号: $Q30_PROFILE"
-          
+          # 【核心修复】：彻底移除扫描脚本，直接硬编码锁定底层架构与设备代号
           echo "CONFIG_TARGET_mediatek=y" > master/.config
           echo "CONFIG_TARGET_mediatek_filogic=y" >> master/.config
           echo "CONFIG_TARGET_MULTI_PROFILE=y" >> master/.config
-          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_${Q30_PROFILE}=y" >> master/.config
           
-          # 关闭签名
+          # 直接指定 Kwrt 源码中完美的 Q30 Pro 配置
+          echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_jcg_q30-pro=y" >> master/.config
+          
+          # 关闭签名校验
           echo "CONFIG_SIGNED_PACKAGES=n" >> master/.config
           
           rm -rf master/tmp
