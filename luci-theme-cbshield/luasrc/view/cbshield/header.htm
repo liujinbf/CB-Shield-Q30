@@ -1,0 +1,20 @@
+<%#
+    CB-Shield KJWS Theme - Header Template
+    页头：品牌 Logo、导航栏
+-%>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CB-Shield-Q30 路由器管理界面 - KJWS 网络安全">
+    <title><%=striptags(( boardinfo or {} ).hostname or "CB-Shield-Q30")%> - <%=striptags(title or "")%></title>
+    <link rel="stylesheet" href="<%=media%>/cbshield/css/style.css" type="text/css" />
+</head>
+<body>
+    <header id="header">
+        <div class="kjws-logo">CB-Shield-Q30</div>
+        <div class="header-info">
+            <span class="header-user"><%=luci.dispatcher.context.authuser or "admin"%></span>
+        </div>
+    </header>

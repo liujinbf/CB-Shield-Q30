@@ -1,0 +1,10 @@
+#!/bin/sh
+# CB-Shield 主题 UCI 默认配置
+# 设置 cbshield 为默认 LuCI 主题
+
+uci batch <<-EOF
+    set luci.main.mediaurlbase='/luci-static/cbshield'
+    commit luci
+EOF
+
+exit 0

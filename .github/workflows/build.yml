@@ -1,0 +1,166 @@
+name: Build CB-Shield-Q30 OpenWrt Firmware
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+    inputs:
+      ssh_debug:
+        description: '启用 SSH 调试连接'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
+  REPO_BRANCH: main
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .config
+  CUSTOM_FILES: files
+  DIY_P1_SH: scripts/diy-part1.sh
+  DIY_P2_SH: scripts/diy-part2.sh
+  UPLOAD_FIRMWARE: true
+  UPLOAD_RELEASE: false
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+    - name: 检出仓库代码
+      uses: actions/checkout@v4
+
+    - name: 释放磁盘空间
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: false
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+
+    - name: 安装编译依赖
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install -y \
+          ack antlr3 asciidoc autoconf automake autopoint binutils bison \
+          build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler \
+          ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gnutls-dev \
+          gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+          libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
+          libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev \
+          libtool lld llvm lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full \
+          patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils \
+          rsync scons squashfs-tools subversion swig texinfo uglifyjs unzip upx-ucl \
+          vim wget xmlto xxd zlib1g-dev zstd
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown $USER:$USER /workdir
+
+    - name: 克隆 OpenWrt 源码
+      working-directory: /workdir
+      run: |
+        df -hT $PWD
+        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+
+    - name: 加载自定义 Feeds 配置
+      run: |
+        [ -e $FEEDS_CONF ] && cp $FEEDS_CONF openwrt/feeds.conf.default
+        chmod +x $DIY_P1_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P1_SH
+
+    - name: 更新并安装 Feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: 执行自定义脚本
+      run: |
+        chmod +x $DIY_P2_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: 加载编译配置
+      run: |
+        [ -e $CONFIG_FILE ] && cp $CONFIG_FILE openwrt/.config
+        cd openwrt
+        make defconfig
+
+    - name: 下载编译所需包
+      run: |
+        cd openwrt
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: 编译固件
+      id: compile
+      run: |
+        cd openwrt
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME || true
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+    - name: 检查磁盘空间
+      if: (!cancelled())
+      run: df -hT
+
+    - name: 整理固件文件
+      id: organize
+      if: steps.compile.outputs.status == 'success'
+      run: |
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 上传固件 Artifact
+      uses: actions/upload-artifact@v4
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
+      with:
+        name: CB-Shield-Q30_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE }}
+
+    - name: 生成 Release Tag
+      id: tag
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
+      run: |
+        echo "release_tag=v$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 上传到 Release
+      uses: softprops/action-gh-release@v1
+      if: steps.tag.outputs.status == 'success'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body: |
+          ## CB-Shield-Q30 固件 🛡️
+          - 目标设备: Q30 PRO 路由器 (MT7981B)
+          - 编译时间: ${{ env.FILE_DATE }}
+          - 包含功能: Passwall、多VLAN、风控、BBR优化
+        files: ${{ env.FIRMWARE }}/*
+
+    - name: 清理工作空间
+      if: always()
+      run: |
+        cd /workdir
+        rm -rf openwrt

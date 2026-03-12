@@ -1,0 +1,170 @@
+<%+header%>
+
+<link rel="stylesheet" href="<%=media%>/cbshield/css/style.css" type="text/css" />
+<script src="<%=media%>/cbshield/js/theme.js"></script>
+
+<div class="cb-dashboard">
+    <div class="cb-page-header">
+        <h1>🌐 网络状态</h1>
+        <p class="cb-subtitle">VLAN 及接口状态监控</p>
+    </div>
+
+    <!-- 接口状态 -->
+    <div class="cb-section">
+        <h2>📡 网络接口</h2>
+        <div class="cb-cards-row" id="iface-cards">
+            <div class="cb-card cb-card-loading">
+                <p>加载中...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- VLAN 拓扑 -->
+    <div class="cb-section">
+        <h2>🔀 VLAN 划分</h2>
+        <div class="cb-vlan-topology">
+            <table class="cb-table">
+                <thead>
+                    <tr>
+                        <th>VLAN</th>
+                        <th>名称</th>
+                        <th>子网</th>
+                        <th>用途</th>
+                        <th>隔离</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="cb-badge cb-badge-info">VLAN 10</span></td>
+                        <td>办公网络</td>
+                        <td>192.168.10.0/24</td>
+                        <td>员工办公设备</td>
+                        <td>否</td>
+                    </tr>
+                    <tr>
+                        <td><span class="cb-badge cb-badge-warning">VLAN 20</span></td>
+                        <td>访客网络</td>
+                        <td>192.168.20.0/24</td>
+                        <td>访客/临时设备</td>
+                        <td>是 (客户端隔离)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="cb-badge cb-badge-success">VLAN 30</span></td>
+                        <td>电商业务</td>
+                        <td>192.168.30.0/24</td>
+                        <td>跨境电商专用</td>
+                        <td>否 (走代理)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SSID 配置 -->
+    <div class="cb-section">
+        <h2>📶 无线网络 (SSID)</h2>
+        <table class="cb-table">
+            <thead>
+                <tr>
+                    <th>SSID</th>
+                    <th>频段</th>
+                    <th>绑定 VLAN</th>
+                    <th>加密</th>
+                    <th>客户端隔离</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>CB-Shield-Office</td>
+                    <td>2.4 GHz</td>
+                    <td>VLAN 10</td>
+                    <td>WPA2-PSK</td>
+                    <td>否</td>
+                </tr>
+                <tr>
+                    <td>CB-Shield-Office-5G</td>
+                    <td>5 GHz</td>
+                    <td>VLAN 10</td>
+                    <td>WPA2-PSK</td>
+                    <td>否</td>
+                </tr>
+                <tr>
+                    <td>CB-Shield-Guest</td>
+                    <td>2.4 GHz</td>
+                    <td>VLAN 20</td>
+                    <td>WPA2-PSK</td>
+                    <td>是</td>
+                </tr>
+                <tr>
+                    <td>CB-Shield-ECom</td>
+                    <td>2.4 GHz</td>
+                    <td>VLAN 30</td>
+                    <td>WPA2-PSK</td>
+                    <td>否</td>
+                </tr>
+                <tr>
+                    <td>CB-Shield-ECom-5G</td>
+                    <td>5 GHz</td>
+                    <td>VLAN 30</td>
+                    <td>WPA3-SAE</td>
+                    <td>否</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 客户端数量 -->
+    <div class="cb-section">
+        <h2>👥 在线客户端</h2>
+        <p>总连接设备: <strong id="total-clients">--</strong></p>
+    </div>
+</div>
+
+<script>
+function loadNetworkStatus() {
+    fetch('/admin/cbshield/api/network')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            renderInterfaceCards(data.interfaces || []);
+            var clientsEl = document.getElementById('total-clients');
+            if (clientsEl) clientsEl.textContent = data.total_clients || 0;
+        })
+        .catch(function(e) {
+            console.error('获取网络状态失败:', e);
+        });
+}
+
+function renderInterfaceCards(interfaces) {
+    var container = document.getElementById('iface-cards');
+    if (!container) return;
+
+    var html = '';
+    var nameMap = {
+        'wan': 'WAN 外网',
+        'vlan_office': '办公 (VLAN 10)',
+        'vlan_guest': '访客 (VLAN 20)',
+        'vlan_ecom': '电商 (VLAN 30)'
+    };
+
+    for (var i = 0; i < interfaces.length; i++) {
+        var iface = interfaces[i];
+        var statusClass = iface.up ? 'cb-badge-success' : 'cb-badge-danger';
+        var statusText = iface.up ? '在线' : '离线';
+
+        html += '<div class="cb-card">';
+        html += '<h3>' + (nameMap[iface.name] || iface.name) + '</h3>';
+        html += '<p><span class="cb-badge ' + statusClass + '">' + statusText + '</span></p>';
+        html += '<p class="cb-detail">IP: ' + (iface.ip || '--') + '</p>';
+        html += '<p class="cb-detail">↓ ' + (iface.rx_human || '--') + '</p>';
+        html += '<p class="cb-detail">↑ ' + (iface.tx_human || '--') + '</p>';
+        html += '</div>';
+    }
+
+    container.innerHTML = html;
+}
+
+document.addEventListener('DOMContentLoaded', loadNetworkStatus);
+setInterval(loadNetworkStatus, 10000);
+</script>
+
+<%+footer%>

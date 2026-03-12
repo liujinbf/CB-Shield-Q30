@@ -1,0 +1,41 @@
+#!/bin/sh /etc/rc.common
+# ============================================================
+# CB-Shield-Q30 风控服务 init.d 脚本
+# ============================================================
+
+START=99
+STOP=10
+USE_PROCD=1
+
+PROG=/usr/bin/cb-riskcontrol
+
+start_service() {
+    procd_open_instance
+    procd_set_param command "$PROG" daemon
+    procd_set_param respawn 3600 5 5
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_set_param pidfile /var/run/cb-riskcontrol.pid
+    procd_close_instance
+}
+
+stop_service() {
+    rm -f /tmp/cb-riskcontrol.lock
+}
+
+service_triggers() {
+    procd_add_reload_trigger "cb-riskcontrol"
+}
+
+reload_service() {
+    stop
+    start
+}
+
+status_service() {
+    if [ -f /tmp/cb-riskcontrol.json ]; then
+        cat /tmp/cb-riskcontrol.json
+    else
+        echo "风控服务状态未知"
+    fi
+}

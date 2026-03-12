@@ -1,0 +1,73 @@
+# =========================================================================
+# CB-Shield-Q30 - Wireless Configuration (JCG Q30 PRO / MT7981B)
+# =========================================================================
+
+# --- 2.4GHz 射频 (MT7981 内置 MT7976C) ---
+config wifi-device 'radio0'
+    option type 'mac80211'
+    option path 'platform/11300000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0+1'
+    option channel 'auto'
+    option band '2g'
+    option htmode 'HE40'
+    option country 'CN'
+    option txpower '20'
+    option cell_density '0'
+
+# 2.4G - 办公 SSID (VLAN 10)
+config wifi-iface 'office_24g'
+    option device 'radio0'
+    option mode 'ap'
+    option ssid 'CB-Shield-Office'
+    option network 'vlan_office'
+    option encryption 'psk2'
+    option key 'CBShield@Office2024'
+
+# 2.4G - 访客 SSID (VLAN 20)
+config wifi-iface 'guest_24g'
+    option device 'radio0'
+    option mode 'ap'
+    option ssid 'CB-Shield-Guest'
+    option network 'vlan_guest'
+    option encryption 'psk2'
+    option key 'CBShield@Guest2024'
+    option isolate '1'
+
+# 2.4G - 电商业务 SSID (VLAN 30)
+config wifi-iface 'ecom_24g'
+    option device 'radio0'
+    option mode 'ap'
+    option ssid 'CB-Shield-ECom'
+    option network 'vlan_ecom'
+    option encryption 'psk2'
+    option key 'CBShield@ECom2024'
+
+# --- 5GHz 射频 (MT7981 内置 MT7976C) ---
+# JCG Q30 PRO 拥有强大的 Wi-Fi 6 5G 频段能力
+config wifi-device 'radio1'
+    option type 'mac80211'
+    option path 'platform/11300000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0+2'
+    option channel 'auto'
+    option band '5g'
+    option htmode 'HE160'
+    option country 'CN'
+    option txpower '23'
+    option cell_density '0'
+
+# 5G - 办公 SSID (VLAN 10)
+config wifi-iface 'office_5g'
+    option device 'radio1'
+    option mode 'ap'
+    option ssid 'CB-Shield-Office-5G'
+    option network 'vlan_office'
+    option encryption 'psk2+ccmp'
+    option key 'CBShield@Office2024'
+    option ieee80211r '1'
+
+# 5G - 电商业务 SSID (VLAN 30)
+config wifi-iface 'ecom_5g'
+    option device 'radio1'
+    option mode 'ap'
+    option ssid 'CB-Shield-ECom-5G'
+    option network 'vlan_ecom'
+    option encryption 'sae' # 使用 WPA3/SAE 对于电商隔离有更好的安全
+    option key 'CBShield@ECom2024'

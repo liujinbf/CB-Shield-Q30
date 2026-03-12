@@ -1,0 +1,79 @@
+# ============================================================
+# CB-Shield-Q30 网络配置
+# VLAN 划分: 办公(VLAN10) / 访客(VLAN20) / 电商业务(VLAN30)
+# ============================================================
+
+config interface 'loopback'
+    option device 'lo'
+    option proto 'static'
+    option ipaddr '127.0.0.1'
+    option netmask '255.0.0.0'
+
+# --- WAN 接口 ---
+config interface 'wan'
+    option device 'eth0.2'
+    option proto 'dhcp'
+
+# --- LAN 主接口 ---
+config interface 'lan'
+    option device 'br-lan'
+    option proto 'static'
+    option ipaddr '192.168.10.1'
+    option netmask '255.255.255.0'
+    option ip6assign '60'
+
+# --- VLAN 交换机配置 ---
+config device
+    option name 'br-lan'
+    option type 'bridge'
+    list ports 'eth0.1'
+
+# --- VLAN 10: 办公网络 ---
+config interface 'vlan_office'
+    option proto 'static'
+    option ipaddr '192.168.10.1'
+    option netmask '255.255.255.0'
+    option device 'br-lan.10'
+
+config device
+    option name 'br-lan.10'
+    option type '8021q'
+    option ifname 'br-lan'
+    option vid '10'
+
+# --- VLAN 20: 访客网络 ---
+config interface 'vlan_guest'
+    option proto 'static'
+    option ipaddr '192.168.20.1'
+    option netmask '255.255.255.0'
+    option device 'br-lan.20'
+
+config device
+    option name 'br-lan.20'
+    option type '8021q'
+    option ifname 'br-lan'
+    option vid '20'
+
+# --- VLAN 30: 跨境电商业务网络 ---
+config interface 'vlan_ecom'
+    option proto 'static'
+    option ipaddr '192.168.30.1'
+    option netmask '255.255.255.0'
+    option device 'br-lan.30'
+
+config device
+    option name 'br-lan.30'
+    option type '8021q'
+    option ifname 'br-lan'
+    option vid '30'
+
+# --- 策略路由规则 ---
+# 电商 VLAN 流量走 Passwall 代理
+config rule
+    option mark '0x30'
+    option lookup '30'
+
+config route
+    option interface 'wan'
+    option target '0.0.0.0/0'
+    option table '30'

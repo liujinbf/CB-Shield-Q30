@@ -1,0 +1,31 @@
+#!/bin/sh /etc/rc.common
+# ============================================================
+# CB-Shield-Q30 高级落地页守护脚本
+# ============================================================
+
+START=99
+STOP=10
+
+USE_PROCD=1
+PROG=/usr/sbin/uhttpd
+
+start_service() {
+    # 检查主程序是否存在
+    [ -x "$PROG" ] || return 1
+
+    # 初始化 procd 实例
+    procd_open_instance "cb-portal"
+
+    # 启动独立的 uhttpd 服务，加载专用的 cb-portal 配置文件
+    # '-f' 让服务在前台运行并被 procd 接管监控
+    procd_set_param command "$PROG" -f -h /www/cb-portal -p 0.0.0.0:8080 -E /www/cb-portal/index.html
+    
+    # 将标准输出和错误重定向到系统日志
+    procd_set_param stderr 1
+    procd_set_param stdout 1
+
+    # 出现异常崩溃时自动重启
+    procd_set_param respawn
+
+    procd_close_instance
+}

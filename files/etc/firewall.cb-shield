@@ -1,0 +1,42 @@
+#!/bin/sh
+# ============================================================
+# CB-Shield PRO - 跨境卫士防火墙核心规则 (Nftables 原生版)
+# ============================================================
+
+# 给 fw4 一点初始化时间
+sleep 2
+
+# 创建或清空自定义链
+nft list chain inet fw4 cb_shield_forward >/dev/null 2>&1 || nft add chain inet fw4 cb_shield_forward { type filter hook forward priority filter \; }
+nft flush chain inet fw4 cb_shield_forward
+
+nft list chain inet fw4 cb_shield_mangle_post >/dev/null 2>&1 || nft add chain inet fw4 cb_shield_mangle_post { type filter hook postrouting priority mangle \; }
+nft flush chain inet fw4 cb_shield_mangle_post
+
+nft list chain inet fw4 cb_shield_killswitch >/dev/null 2>&1 || nft add chain inet fw4 cb_shield_killswitch { type filter hook forward priority -1 \; }
+nft flush chain inet fw4 cb_shield_killswitch
+
+# ==========================================
+# 1. 跨境指纹伪装 & 隐私保护
+# ==========================================
+
+# [指纹伪装] 修改 TTL 为 128 (模拟 Windows 10/11，防嗅探)
+nft add rule inet fw4 cb_shield_mangle_post ip ttl set 128
+
+# [隐私保护] 物理阻断 WebRTC 全系端口 (STUN/TURN)，绝杀真实 IP 泄漏
+nft add rule inet fw4 cb_shield_forward tcp dport { 3478, 5349, 19302 } drop
+nft add rule inet fw4 cb_shield_forward udp dport { 3478, 5349, 19302 } drop
+
+# [传输优化] 锁定 MSS 为 1452 (避免特定外网加载卡顿)
+nft add rule inet fw4 cb_shield_forward tcp flags syn / syn,rst tcp option maxseg size set 1452
+
+# ==========================================
+# 2. 基础安全加固 (替代原始 iptables 规则)
+# ==========================================
+# 丢弃无效包
+nft add rule inet fw4 cb_shield_forward ct state invalid drop
+
+# 防护外部直接访问管理端口 (eth0 / wan)
+# 这里假设外网接口绑定到 wan 设备上，通用写法为限制 iifname "eth*" 但由于接口名不固定，我们依赖默认 WAN zone drop
+
+exit 0

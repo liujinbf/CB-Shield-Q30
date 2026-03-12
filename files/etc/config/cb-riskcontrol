@@ -1,0 +1,10 @@
+# ============================================================
+# CB-Shield-Q30 风控 UCI 配置 (文件系统覆盖)
+# ============================================================
+
+config main 'main'
+    option enabled '1'
+    option check_interval '300'
+    option risk_threshold '70'
+    option action 'warn'
+    option api_provider 'ip-api'

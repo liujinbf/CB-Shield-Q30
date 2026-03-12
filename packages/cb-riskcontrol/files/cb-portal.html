@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CB-Shield Pro 高级业务防护解决方案</title>
+    <style>
+        :root {
+            --primary: #0066cc;
+            --secondary: #003366;
+            --accent: #ff6b6b;
+            --bg-color: #f5f7fa;
+            --text-main: #333333;
+            --text-light: #666666;
+            --white: #ffffff;
+            --border: #e1e4e8;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: var(--white);
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-top: 10px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            border-top: 4px solid var(--primary);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .card-icon {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+
+        .card h3 {
+            margin: 0 0 15px 0;
+            color: var(--secondary);
+            font-size: 1.3em;
+        }
+
+        .card p {
+            color: var(--text-light);
+            font-size: 0.95em;
+            margin: 0;
+        }
+
+        .highlight-box {
+            background: linear-gradient(to right, rgba(0,102,204,0.05), rgba(0,51,102,0.05));
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 40px 0;
+        }
+
+        .highlight-box h2 {
+            margin-top: 0;
+            color: var(--secondary);
+        }
+
+        .cta-section {
+            text-align: center;
+            margin: 50px 0;
+            padding: 40px;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .cta-btn {
+            display: inline-block;
+            background: var(--primary);
+            color: var(--white);
+            padding: 15px 35px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: background 0.3s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,102,204,0.3);
+        }
+
+        .cta-btn:hover {
+            background: var(--secondary);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-light);
+            font-size: 0.9em;
+            border-top: 1px solid var(--border);
+            margin-top: 50px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2em; }
+            .card-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🛡️ CB-Shield Pro (跨境卫士)</h1>
+        <p>V3.0 黄金终极版 · 专为跨境电商/出海业务打造的防关联路由系统</p>
+    </div>
+
+    <div class="container">
+        
+        <div class="highlight-box">
+            <h2>为什么需要 CB-Shield Pro？</h2>
+            <p id="portal-announcement">在亚马逊(Amazon)、TikTok、Shopee 等跨境电商平台的严苛风控下，普通的“科学上网”早已无法满足高安全性的要求。浏览器指纹、DNS 泄漏、时区差异、底层重路由探测随时可能导致您的账号或店铺被连坐封禁。CB-Shield Pro 通过硬件底层的流量重构，为您打造固若金汤的纯净网络环境。</p>
+        </div>
+
+        <h2 style="text-align: center; color: var(--secondary); margin-top: 50px;">核心防护矩阵</h2>
+
+        <div class="card-grid">
+            <!-- 卡片 1 -->
+            <div class="card">
+                <div class="card-icon">⚡</div>
+                <h3>硬件级 Nftables 拦截</h3>
+                <p>彻底抛弃陈旧的 iptables。系统底层 <strong>强制 TTL=128 伪装</strong>（模拟 Windows 办公），并在 OOB 层拦截所有 <strong>WebRTC (STUN/TURN)</strong> 协议端口，100% 杜绝浏览器真实 IP 穿透。</p>
+            </div>
+
+            <!-- 卡片 2 -->
+            <div class="card">
+                <div class="card-icon">🕒</div>
+                <h3>自动时区与流缓存加速</h3>
+                <p>守护进程精准解析节点 <strong>Timezone (时区)</strong>，在毫秒级自动对齐系统时间。配合 <strong>HW/SW Flow Offloading</strong> 软硬双重加速，即便跑满千兆带宽双核 CPU 占用依旧低于 5%。</p>
+            </div>
+
+            <!-- 卡片 3 -->
+            <div class="card">
+                <div class="card-icon">🛑</div>
+                <h3>流量锁 (Kill Switch)</h3>
+                <p>业界独创的 Nftables 秒级流量锁。内置超高频连通性检测，一旦侦测到代理节点掉线，<strong>瞬间物理阻断所有内网数据包转发</strong>，宁可断网也绝不允许真实 IP 发生一次外包泄露！</p>
+            </div>
+
+            <!-- 卡片 4 -->
+            <div class="card">
+                <div class="card-icon">👻</div>
+                <h3>MAC 随机化防追踪</h3>
+                <p>您的物理 MAC 地址（BSSID）也是高危追踪特征！CB-Shield V3.0 会在每一次路由器重启时，为您生成并分配 <strong>全套全新的合法私有 MAC 地址</strong>，彻底切割历史关联设备特征。</p>
+            </div>
+
+            <!-- 卡片 5 -->
+            <div class="card">
+                <div class="card-icon">🛡️</div>
+                <h3>DNS 强劫持回源</h3>
+                <p>还在担心客户端写死了 `8.8.8.8` 而绕过代理导致漏包？V3.0 通过专有 <strong>DNAT 接管</strong>，将所有 53 端口流量物理重定向至本地加密代理通道，实现绝对的数据匿名。</p>
+            </div>
+
+            <!-- 卡片 6 -->
+            <div class="card">
+                <div class="card-icon">🎥</div>
+                <h3>SQM/Cake 视频流整形</h3>
+                <p>专为 <strong>TikTok 直播带货 / YouTube 高清上传</strong> 优化。独特的 qdisc 调度算法确保电商数据包永远具备最高发包优先级，彻底消灭局域网拥堵带来的 Bufferbloat 延迟刺突。</p>
+            </div>
+        </div>
+
+        <div class="cta-section">
+            <h2 style="color: var(--secondary); margin-top:0;">需要更高级的独立专属定制？</h2>
+            <p style="color: var(--text-light); margin-bottom: 25px;" id="portal-contact-info">如果您有团队矩阵号运营需求，或需要全套硬件私有化部署，请联系我们获取企业级支持方案。</p>
+            <a href="mailto:kjws@cbshield.com" class="cta-btn" id="portal-contact-btn">联系我们定制企业版</a>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <p>© 2026 KJWS Network Security & CB-Shield Pro. 基于 OpenWrt MT7981B 架构深度定制开发。</p>
+    </div>
+
+    <script>
+        function applyCloudConfig() {
+            var configUrl = 'https://raw.githubusercontent.com/liujinbf/CB-Shield-Q30/main/portal_config.json?t=' + new Date().getTime();
+            fetch(configUrl)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if(data.announcement) {
+                        document.getElementById('portal-announcement').innerHTML = '<strong>' + data.announcement + '</strong><br><br>' + document.getElementById('portal-announcement').innerHTML;
+                    }
+                    if(data.contact_email) {
+                        document.getElementById('portal-contact-btn').href = 'mailto:' + data.contact_email;
+                    }
+                    if(data.contact_phone) {
+                        document.getElementById('portal-contact-info').innerText = '专属定制 / 集团批量采购，请联系: ' + data.contact_phone + " | 邮箱: " + data.contact_email;
+                    }
+                })
+                .catch(function(e) {
+                    console.log('云端配置加载失败，使用内置默认展示。');
+                });
+        }
+        document.addEventListener('DOMContentLoaded', applyCloudConfig);
+    </script>
+</body>
+</html>

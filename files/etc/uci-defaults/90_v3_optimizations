@@ -1,0 +1,50 @@
+#!/bin/sh
+# =========================================================
+# V3.0 防关联终极优化初始脚本
+# 此脚本在固件第一次启动时执行
+# =========================================================
+
+# 1. 净化 NTP 服务器，彻底剔除国内指纹，改用国际公共池
+uci -q delete system.ntp.server
+uci add_list system.ntp.server='time.cloudflare.com'
+uci add_list system.ntp.server='time.google.com'
+uci add_list system.ntp.server='pool.ntp.org'
+uci commit system
+
+# 2. 扩容 DNSmasq 缓存池 (提升防泄漏后的解析体验)
+uci set dhcp.@dnsmasq[0].cachesize='1500'
+uci commit dhcp
+
+# 3. 创建 MAC 随机化守护脚本 (仅针对电商 VLAN SSID)
+# 此脚本每次开机都会为 ecom SSID 生成一个合法且随机的私有 MAC 地址
+cat << 'EOF' > /etc/init.d/mac_randomizer
+#!/bin/sh /etc/rc.common
+
+START=15
+STOP=85
+
+start() {
+    # 生成合法的本地管理 MAC 地址 (第二个十六进制字符必须是 2, 6, A, 或 E)
+    # 形如: 02:xx:xx:xx:xx:xx
+    
+    # 修改 2.4G 电商 SSID
+    if uci -q get wireless.ecom_24g >/dev/null; then
+        NEW_MAC24="02:$(hexdump -n 5 -e '5/1 "%02x:"' /dev/urandom | sed 's/.$//')"
+        uci set wireless.ecom_24g.macaddr="$NEW_MAC24"
+    fi
+    
+    # 修改 5G 电商 SSID
+    if uci -q get wireless.ecom_5g >/dev/null; then
+        NEW_MAC50="02:$(hexdump -n 5 -e '5/1 "%02x:"' /dev/urandom | sed 's/.$//')"
+        uci set wireless.ecom_5g.macaddr="$NEW_MAC50"
+    fi
+    
+    uci commit wireless
+}
+EOF
+
+# 赋予执行权限并设为开机自启
+chmod +x /etc/init.d/mac_randomizer
+/etc/init.d/mac_randomizer enable
+
+exit 0

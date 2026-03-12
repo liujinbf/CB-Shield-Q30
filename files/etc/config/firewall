@@ -1,0 +1,154 @@
+# ============================================================
+# CB-Shield-Q30 防火墙配置
+# - VLAN 间隔离
+# - DDoS/端口扫描防护
+# - 策略路由标记
+# ============================================================
+
+config defaults
+    option syn_flood '1'
+    option input 'ACCEPT'
+    option output 'ACCEPT'
+    option forward 'REJECT'
+    option drop_invalid '1'
+    option synflood_rate '25'
+    option synflood_burst '50'
+    option flow_offloading '1'
+    option flow_offloading_hw '1'
+
+# --- Zone: WAN ---
+config zone
+    option name 'wan'
+    option input 'REJECT'
+    option output 'ACCEPT'
+    option forward 'REJECT'
+    option masq '1'
+    option mtu_fix '1'
+    list network 'wan'
+
+# --- Zone: 办公网络 (VLAN 10) ---
+config zone
+    option name 'office'
+    option input 'ACCEPT'
+    option output 'ACCEPT'
+    option forward 'ACCEPT'
+    list network 'lan'
+    list network 'vlan_office'
+
+# --- Zone: 访客网络 (VLAN 20) ---
+config zone
+    option name 'guest'
+    option input 'REJECT'
+    option output 'ACCEPT'
+    option forward 'REJECT'
+    list network 'vlan_guest'
+
+# --- Zone: 电商业务网络 (VLAN 30) ---
+config zone
+    option name 'ecom'
+    option input 'ACCEPT'
+    option output 'ACCEPT'
+    option forward 'ACCEPT'
+    list network 'vlan_ecom'
+
+# --- Forwarding 规则 ---
+# 办公 -> WAN (允许上网)
+config forwarding
+    option src 'office'
+    option dest 'wan'
+
+# 访客 -> WAN (仅允许上网, 不允许访问内网)
+config forwarding
+    option src 'guest'
+    option dest 'wan'
+
+# 电商 -> WAN (允许上网, 走代理)
+config forwarding
+    option src 'ecom'
+    option dest 'wan'
+
+# --- 防火墙规则 ---
+# 允许 DHCP (访客网络)
+config rule
+    option name 'Allow-Guest-DHCP'
+    option src 'guest'
+    option proto 'udp'
+    option dest_port '67-68'
+    option target 'ACCEPT'
+
+# 允许 DNS (访客网络)
+config rule
+    option name 'Allow-Guest-DNS'
+    option src 'guest'
+    option proto 'tcp udp'
+    option dest_port '53'
+    option target 'ACCEPT'
+
+# 禁止访客访问管理界面
+config rule
+    option name 'Deny-Guest-LuCI'
+    option src 'guest'
+    option proto 'tcp'
+    option dest_port '80 443'
+    option target 'REJECT'
+
+# 禁止访客访问内网
+config rule
+    option name 'Deny-Guest-to-LAN'
+    option src 'guest'
+    option dest 'office'
+    option target 'REJECT'
+
+config rule
+    option name 'Deny-Guest-to-ECom'
+    option src 'guest'
+    option dest 'ecom'
+    option target 'REJECT'
+
+# 允许 Ping (管理用)
+config rule
+    option name 'Allow-Ping'
+    option src 'office'
+    option proto 'icmp'
+    option icmp_type 'echo-request'
+    option target 'ACCEPT'
+
+# 限制 WAN 入站 ICMP
+config rule
+    option name 'Limit-WAN-Ping'
+    option src 'wan'
+    option proto 'icmp'
+    option icmp_type 'echo-request'
+    option target 'DROP'
+
+# --- DDoS 防护 (iptables 自定义规则) ---
+config include
+    option path '/etc/firewall.cb-shield'
+    option reload '1'
+
+# --- 策略路由标记 ---
+# 标记电商 VLAN 流量用于策略路由
+config rule
+    option name 'Mark-ECom-Traffic'
+    option src 'ecom'
+    option dest 'wan'
+    option set_mark '0x30'
+    option target 'MARK'
+
+# --- DNS 防泄漏劫持 (V3.0 终极特性) ---
+# 强制电商网络所有 DNS 请求回源到本机的 Dnsmasq 进行解析
+config redirect
+    option name 'Hijack-ECom-DNS-UDP'
+    option src 'ecom'
+    option proto 'udp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-ECom-DNS-TCP'
+    option src 'ecom'
+    option proto 'tcp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
