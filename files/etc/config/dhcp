@@ -1,6 +1,6 @@
 # ============================================================
 # CB-Shield-Q30 DHCP 配置
-# 每个 VLAN 独立的 DHCP 池
+# 多店铺独立 IP 隔离网段
 # ============================================================
 
 config dnsmasq
@@ -19,29 +19,53 @@ config dnsmasq
     option localservice '1'
     option ednspacket_max '1232'
 
-# --- VLAN 10 办公网络 DHCP ---
-config dhcp 'vlan_office'
-    option interface 'vlan_office'
+# --- LAN 主网络 DHCP (办公) ---
+config dhcp 'lan'
+    option interface 'lan'
     option start '100'
     option limit '150'
     option leasetime '12h'
     option dhcpv4 'server'
     list dhcp_option '6,192.168.10.1'
 
-# --- VLAN 20 访客网络 DHCP ---
-config dhcp 'vlan_guest'
-    option interface 'vlan_guest'
-    option start '100'
-    option limit '50'
-    option leasetime '2h'
-    option dhcpv4 'server'
-    list dhcp_option '6,192.168.20.1'
+# --- 店铺网络 DHCP 池 (默认忽略, 随接口启用生效) ---
 
-# --- VLAN 30 电商业务网络 DHCP ---
-config dhcp 'vlan_ecom'
-    option interface 'vlan_ecom'
-    option start '100'
-    option limit '100'
+config dhcp 'shop1'
+    option interface 'shop1'
+    option start '10'
+    option limit '50'
     option leasetime '12h'
     option dhcpv4 'server'
-    list dhcp_option '6,192.168.30.1'
+    option ignore '1'
+
+config dhcp 'shop2'
+    option interface 'shop2'
+    option start '10'
+    option limit '50'
+    option leasetime '12h'
+    option dhcpv4 'server'
+    option ignore '1'
+
+config dhcp 'shop3'
+    option interface 'shop3'
+    option start '10'
+    option limit '50'
+    option leasetime '12h'
+    option dhcpv4 'server'
+    option ignore '1'
+
+config dhcp 'shop4'
+    option interface 'shop4'
+    option start '10'
+    option limit '50'
+    option leasetime '12h'
+    option dhcpv4 'server'
+    option ignore '1'
+
+config dhcp 'shop5'
+    option interface 'shop5'
+    option start '10'
+    option limit '50'
+    option leasetime '12h'
+    option dhcpv4 'server'
+    option ignore '1'

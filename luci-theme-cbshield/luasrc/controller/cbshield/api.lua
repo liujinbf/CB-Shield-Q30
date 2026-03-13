@@ -9,6 +9,7 @@ function index()
     entry({"admin", "cbshield", "api", "sysinfo"}, call("action_sysinfo")).leaf = true
     entry({"admin", "cbshield", "api", "riskstatus"}, call("action_riskstatus")).leaf = true
     entry({"admin", "cbshield", "api", "network"}, call("action_network")).leaf = true
+    entry({"admin", "cbshield", "api", "toggle_shop"}, call("action_toggle_shop")).leaf = true
     entry({"admin", "cbshield", "api", "connections"}, call("action_connections")).leaf = true
 end
 
@@ -97,46 +98,109 @@ function action_riskstatus()
 end
 
 -- ============================================================
--- 网络状态 API
+-- 网络状态 API (更新以支持 5 个 Shop)
 -- ============================================================
 function action_network()
     local data = {
         interfaces = {},
-        vlans = {}
+        shops = {}
     }
 
-    -- 获取网络接口信息
-    local interfaces = {"vlan_office", "vlan_guest", "vlan_ecom", "wan"}
-    for _, iface in ipairs(interfaces) do
-        local info = {}
-        info.name = iface
-        info.up = (sys.exec("ubus call network.interface." .. iface .. " status 2>/dev/null | jsonfilter -e '@.up'") or ""):match("true") and true or false
-
-        -- 获取 IP
-        local ip = sys.exec("ubus call network.interface." .. iface .. " status 2>/dev/null | jsonfilter -e '@[\"ipv4-address\"][0].address'")
-        info.ip = ip and ip:gsub("%s+", "") or ""
-
-        -- 获取流量统计
-        local dev = sys.exec("ubus call network.interface." .. iface .. " status 2>/dev/null | jsonfilter -e '@.device'")
-        if dev then
-            dev = dev:gsub("%s+", "")
-            local rx = tonumber(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/rx_bytes 2>/dev/null")) or 0
-            local tx = tonumber(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/tx_bytes 2>/dev/null")) or 0
-            info.rx_bytes = rx
-            info.tx_bytes = tx
-            info.rx_human = format_bytes(rx)
-            info.tx_human = format_bytes(tx)
-        end
-
+    -- 1. 获取基础接口信息 (LAN / WAN)
+    local base_ifaces = {"lan", "wan"}
+    for _, iface in ipairs(base_ifaces) do
+        local info = get_iface_info(iface)
         table.insert(data.interfaces, info)
     end
 
-    -- 连接的客户端数量
+    -- 2. 获取 5 个隔离店铺环境信息
+    for i = 1, 5 do
+        local shop_id = "shop" .. i
+        local info = get_iface_info(shop_id)
+        
+        -- 获取关联的 WiFi SSID 和 状态
+        local wifi_id = "shop" .. i .. "_5g"
+        info.ssid = sys.exec("uci -q get wireless." .. wifi_id .. ".ssid") or "N/A"
+        info.wifi_enabled = (sys.exec("uci -q get wireless." .. wifi_id .. ".disabled") or "0") == "0"
+        
+        table.insert(data.shops, info)
+    end
+
+    -- 连接的客户端总数
     local arp = sys.exec("cat /proc/net/arp | grep -v 'IP address' | wc -l")
     data.total_clients = tonumber(arp) or 0
 
     http.prepare_content("application/json")
     http.write(json.stringify(data))
+end
+
+-- ============================================================
+-- 店铺环境开关控制 API
+-- ============================================================
+function action_toggle_shop()
+    local id = http.formvalue("id") -- shop1, shop2...
+    local enable = http.formvalue("enable") == "1"
+    
+    if not id or not id:match("^shop%d$") then
+        http.status(400, "Bad Request")
+        return
+    end
+
+    local disabled_val = enable and "0" or "1"
+    local wifi_id = id .. "_5g"
+
+    -- 1. 修改网络接口状态
+    sys.exec("uci set network." .. id .. ".disabled='" .. disabled_val .. "'")
+    -- 2. 修改对应 DHCP 状态
+    sys.exec("uci set dhcp." .. id .. ".ignore='" .. disabled_val .. "'")
+    -- 3. 修改无线 SSID 状态
+    sys.exec("uci set wireless." .. wifi_id .. ".disabled='" .. disabled_val .. "'")
+    
+    -- 提交并重启相关服务
+    sys.exec("uci commit network; uci commit dhcp; uci commit wireless")
+    
+    -- 异步应用配置 (避免阻塞 API)
+    sys.exec("/sbin/reload_config &")
+
+    http.prepare_content("application/json")
+    http.write(json.stringify({status = "success", enabled = enable}))
+end
+
+-- ============================================================
+-- 辅助函数
+-- ============================================================
+
+-- 获取指定接口的详细信息
+function get_iface_info(iface)
+    local info = { name = iface }
+    
+    local status = sys.exec("ubus call network.interface." .. iface .. " status 2>/dev/null")
+    if status and status ~= "" then
+        local s = json.parse(status)
+        info.up = s.up or false
+        info.disabled = s.disabled or false
+        
+        if s["ipv4-address"] and s["ipv4-address"][1] then
+            info.ip = s["ipv4-address"][1].address
+        else
+            info.ip = sys.exec("uci -q get network." .. iface .. ".ipaddr") or ""
+        end
+
+        if s.device then
+            local dev = s.device
+            local rx = tonumber(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/rx_bytes 2>/dev/null")) or 0
+            local tx = tonumber(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/tx_bytes 2>/dev/null")) or 0
+            info.rx_human = format_bytes(rx)
+            info.tx_human = format_bytes(tx)
+        end
+    else
+        -- 接口未启动时的备选显示
+        info.up = false
+        info.disabled = (sys.exec("uci -q get network." .. iface .. ".disabled") or "0") == "1"
+        info.ip = sys.exec("uci -q get network." .. iface .. ".ipaddr") or ""
+    end
+    
+    return info
 end
 
 -- ============================================================

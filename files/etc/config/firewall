@@ -1,8 +1,7 @@
 # ============================================================
 # CB-Shield-Q30 防火墙配置
-# - VLAN 间隔离
+# - 多店铺绝对物理隔离 (Shop1 - Shop5)
 # - DDoS/端口扫描防护
-# - 策略路由标记
 # ============================================================
 
 config defaults
@@ -26,94 +25,110 @@ config zone
     option mtu_fix '1'
     list network 'wan'
 
-# --- Zone: 办公网络 (VLAN 10) ---
+# --- Zone: LAN 主网络 (办公/管理) ---
 config zone
-    option name 'office'
+    option name 'lan'
     option input 'ACCEPT'
     option output 'ACCEPT'
     option forward 'ACCEPT'
     list network 'lan'
-    list network 'vlan_office'
 
-# --- Zone: 访客网络 (VLAN 20) ---
+# === 跨境店铺独立隔离域 (Shop1 - Shop5) ===
+
 config zone
-    option name 'guest'
+    option name 'shop1'
+    option input 'REJECT'  
+    option output 'ACCEPT'
+    option forward 'REJECT'
+    list network 'shop1'
+
+config zone
+    option name 'shop2'
     option input 'REJECT'
     option output 'ACCEPT'
     option forward 'REJECT'
-    list network 'vlan_guest'
+    list network 'shop2'
 
-# --- Zone: 电商业务网络 (VLAN 30) ---
 config zone
-    option name 'ecom'
-    option input 'ACCEPT'
+    option name 'shop3'
+    option input 'REJECT'
     option output 'ACCEPT'
-    option forward 'ACCEPT'
-    list network 'vlan_ecom'
+    option forward 'REJECT'
+    list network 'shop3'
 
-# --- Forwarding 规则 ---
-# 办公 -> WAN (允许上网)
+config zone
+    option name 'shop4'
+    option input 'REJECT'
+    option output 'ACCEPT'
+    option forward 'REJECT'
+    list network 'shop4'
+
+config zone
+    option name 'shop5'
+    option input 'REJECT'
+    option output 'ACCEPT'
+    option forward 'REJECT'
+    list network 'shop5'
+
+# --- Forwarding 规则 (仅允许向 WAN 出口转发) ---
 config forwarding
-    option src 'office'
+    option src 'lan'
+    option dest 'wan'
+config forwarding
+    option src 'shop1'
+    option dest 'wan'
+config forwarding
+    option src 'shop2'
+    option dest 'wan'
+config forwarding
+    option src 'shop3'
+    option dest 'wan'
+config forwarding
+    option src 'shop4'
+    option dest 'wan'
+config forwarding
+    option src 'shop5'
     option dest 'wan'
 
-# 访客 -> WAN (仅允许上网, 不允许访问内网)
-config forwarding
-    option src 'guest'
-    option dest 'wan'
+# --- 基础规则 (允许必须的基础服务) ---
 
-# 电商 -> WAN (允许上网, 走代理)
-config forwarding
-    option src 'ecom'
-    option dest 'wan'
-
-# --- 防火墙规则 ---
-# 允许 DHCP (访客网络)
+# 允许各店铺网络访问 DHCP 端口
 config rule
-    option name 'Allow-Guest-DHCP'
-    option src 'guest'
+    option name 'Allow-Shops-DHCP'
+    list src 'shop1'
+    list src 'shop2'
+    list src 'shop3'
+    list src 'shop4'
+    list src 'shop5'
+    option dest_port '67 68'
     option proto 'udp'
-    option dest_port '67-68'
     option target 'ACCEPT'
 
-# 允许 DNS (访客网络)
+# 允许各店铺网络访问 DNS
 config rule
-    option name 'Allow-Guest-DNS'
-    option src 'guest'
-    option proto 'tcp udp'
+    option name 'Allow-Shops-DNS'
+    list src 'shop1'
+    list src 'shop2'
+    list src 'shop3'
+    list src 'shop4'
+    list src 'shop5'
     option dest_port '53'
+    option proto 'tcp udp'
     option target 'ACCEPT'
 
-# 禁止访客访问管理界面
+# --- 严格物理隔离: 阻断店铺设备访问管理后台 (LuCI/SSH) ---
 config rule
-    option name 'Deny-Guest-LuCI'
-    option src 'guest'
+    option name 'Deny-Shops-Admin-Access'
+    list src 'shop1'
+    list src 'shop2'
+    list src 'shop3'
+    list src 'shop4'
+    list src 'shop5'
+    option dest_port '22 80 443'
     option proto 'tcp'
-    option dest_port '80 443'
     option target 'REJECT'
 
-# 禁止访客访问内网
-config rule
-    option name 'Deny-Guest-to-LAN'
-    option src 'guest'
-    option dest 'office'
-    option target 'REJECT'
-
-config rule
-    option name 'Deny-Guest-to-ECom'
-    option src 'guest'
-    option dest 'ecom'
-    option target 'REJECT'
-
-# 允许 Ping (管理用)
-config rule
-    option name 'Allow-Ping'
-    option src 'office'
-    option proto 'icmp'
-    option icmp_type 'echo-request'
-    option target 'ACCEPT'
-
-# 限制 WAN 入站 ICMP
+# 限制 WAN 入站 Ping
 config rule
     option name 'Limit-WAN-Ping'
     option src 'wan'
@@ -121,33 +136,31 @@ config rule
     option icmp_type 'echo-request'
     option target 'DROP'
 
-# --- DDoS 防护 (iptables 自定义规则) ---
+# --- DDoS 防护规则钩子 ---
 config include
     option path '/etc/firewall.cb-shield'
     option reload '1'
 
-# --- 策略路由标记 ---
-# 标记电商 VLAN 流量用于策略路由
-config rule
-    option name 'Mark-ECom-Traffic'
-    option src 'ecom'
-    option dest 'wan'
-    option set_mark '0x30'
-    option target 'MARK'
-
-# --- DNS 防泄漏劫持 (V3.0 终极特性) ---
-# 强制电商网络所有 DNS 请求回源到本机的 Dnsmasq 进行解析
+# --- DNS 防泄漏劫持 (强制所有店铺域名解析走向代理) ---
 config redirect
-    option name 'Hijack-ECom-DNS-UDP'
-    option src 'ecom'
+    option name 'Hijack-Shops-DNS-UDP'
+    list src 'shop1'
+    list src 'shop2'
+    list src 'shop3'
+    list src 'shop4'
+    list src 'shop5'
     option proto 'udp'
     option src_dport '53'
     option dest_port '53'
     option target 'DNAT'
 
 config redirect
-    option name 'Hijack-ECom-DNS-TCP'
-    option src 'ecom'
+    option name 'Hijack-Shops-DNS-TCP'
+    list src 'shop1'
+    list src 'shop2'
+    list src 'shop3'
+    list src 'shop4'
+    list src 'shop5'
     option proto 'tcp'
     option src_dport '53'
     option dest_port '53'

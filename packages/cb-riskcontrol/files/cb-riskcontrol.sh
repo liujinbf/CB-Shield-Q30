@@ -236,10 +236,13 @@ daemon_loop() {
         # ========== 流量锁 Kill Switch (V2.2 Gold 特性) ==========
         # 利用 -m 绝对超时探测代理节点连通性
         if ! curl -I -s --connect-timeout 3 -m 3 https://www.google.com > /dev/null; then
-            # 节点掉线，触发流量锁，阻断网卡转发
+            # 节点掉线，触发流量锁，阻断所有跨境隔离网卡的转发
             nft flush chain inet fw4 cb_shield_killswitch 2>/dev/null
-            nft add rule inet fw4 cb_shield_killswitch reject 2>/dev/null
-            log_warn "流量锁已触发：代理断线，已强制物理切断内网转发，绝杀裸连泄露！"
+            # 循环阻断 5 个 Shop 环境进入公网，绝杀裸连泄露
+            for i in 1 2 3 4 5; do
+                nft add rule inet fw4 cb_shield_killswitch iifname "shop${i}" reject 2>/dev/null
+            done
+            log_warn "流量锁已触发：代理断线，已强制物理切断所有 Shop 环境的内网转发，绝杀裸连泄露！"
         else
             # 节点恢复，解除流量锁
             nft flush chain inet fw4 cb_shield_killswitch 2>/dev/null

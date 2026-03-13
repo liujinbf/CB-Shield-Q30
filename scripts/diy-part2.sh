@@ -79,4 +79,22 @@ chmod +x patch_q30_format.sh
 ./patch_q30_format.sh
 rm patch_q30_format.sh
 
+# === 固件极致瘦身与安全加固 (由 Antigravity 注入) ===
+
+# 1. 彻底禁用全局 IPv6 (针对 config_generate)
+sed -i 's/.*ip6assign.*/\t\tset network.lan.ip6assign=0/g' package/base-files/files/bin/config_generate
+sed -i 's/.*ip6gw.*/\t\tset network.wan.ip6gw=0/g' package/base-files/files/bin/config_generate
+
+# 2. 移除 uhttpd 服务器特征响应头 (隐私增强)
+# 修改 uhttpd 的默认配置生成，禁用版本显示和干扰探测
+if [ -f "package/network/services/uhttpd/files/uhttpd.config" ]; then
+    sed -i '/config uhttpd main/a \	option banner 0' package/network/services/uhttpd/files/uhttpd.config
+fi
+
+# 3. 禁用一些消耗资源的 mDNS 组播服务守护 (防局域网探测)
+# 针对 avahi, mdns 等服务 (如果存在)
+sed -i 's/enabled=1/enabled=0/g' package/feeds/packages/avahi/files/avahi-daemon.init 2>/dev/null
+
+echo "  已完成固件精简与 IPv6 全面封杀脚本注入。"
+
 echo ">>> CB-Shield-Q30 DIY Part 2 执行完毕"
