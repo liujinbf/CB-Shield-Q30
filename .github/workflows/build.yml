@@ -76,6 +76,19 @@ jobs:
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
+    - name: 缓存编译目录
+      uses: actions/cache@v4
+      with:
+        path: |
+          /workdir/openwrt/dl
+          /workdir/openwrt/.ccache
+          /workdir/openwrt/staging_dir/host
+          /workdir/openwrt/staging_dir/hostpkg
+          /workdir/openwrt/staging_dir/toolchain-*
+        key: ${{ runner.os }}-openwrt-${{ hashFiles('openwrt/feeds.conf.default', 'openwrt/.config') }}
+        restore-keys: |
+          ${{ runner.os }}-openwrt-
+
     - name: 加载自定义 Feeds 配置
       run: |
         [ -e $FEEDS_CONF ] && cp $FEEDS_CONF openwrt/feeds.conf.default
@@ -113,6 +126,8 @@ jobs:
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
+        export CCACHE_DIR=/workdir/openwrt/.ccache
+        export PATH="/usr/lib/ccache:$PATH"
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME || true
