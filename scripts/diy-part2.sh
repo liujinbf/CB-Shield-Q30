@@ -48,16 +48,23 @@ cat > package/base-files/files/etc/banner << 'EOF'
  -----------------------------------------------------
 EOF
 
-# 适配第三方 U-Boot: 修改 Q30 Pro 的目标镜像生成格式为 .bin
+# 1. 修正 JCG Q30 Pro 的 DTS 引导参数 (关键：移除 root=/dev/fit0 以适配第三方 U-Boot)
+DTS_FILE="target/linux/mediatek/dts/mt7981-jcg-q30-pro.dts"
+if [ -f "$DTS_FILE" ]; then
+    sed -i 's/root=\/dev\/fit0 rootwait//g' "$DTS_FILE"
+    echo "  已修正 DTS 引导参数: $DTS_FILE"
+fi
+
+# 2. 适配 Kwrt 风格的镜像生成格式 (filogic.mk)
 cat << 'EOF' > patch_q30_format.sh
 #!/bin/bash
 MK_FILE="target/linux/mediatek/image/filogic.mk"
 if [ -f "$MK_FILE" ]; then
-    # 定位 Device/jcg_q30-pro 定义块并进行替换
+    # 定位 Device/jcg_q30-pro 定义块并进行替换为 Kwrt 风格
     sed -i '/define Device\/jcg_q30-pro/,/endef/c\
 define Device/jcg_q30-pro\
   DEVICE_VENDOR := JCG\
-  DEVICE_MODEL := Q30 PRO\
+  DEVICE_MODEL := Q30 PRO (Kwrt Style)\
   DEVICE_DTS := mt7981b-jcg-q30-pro\
   DEVICE_DTS_DIR := ../dts\
   DEVICE_DTC_FLAGS := --pad 4096\
