@@ -10,4 +10,4 @@ src-git passwall https://github.com/openwrt-passwall/openwrt-passwall.git;main
 src-git passwall_packages https://github.com/openwrt-passwall/openwrt-passwall-packages.git;main
 
 # Kwrt 特色软件包源
-src-git kwrt https://github.com/kiddin9/kwrt-packages.git;main
+src-git kwrt https://github.com/kiddin9/op-packages.git;main
