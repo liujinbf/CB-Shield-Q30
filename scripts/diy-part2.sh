@@ -102,6 +102,10 @@ fi
 # 针对 avahi, mdns 等服务 (如果存在)
 sed -i 's/enabled=1/enabled=0/g' package/feeds/packages/avahi/files/avahi-daemon.init 2>/dev/null
 
-echo "  已完成固件精简与 IPv6 全面封杀脚本注入。"
+# 3. 修正 CMake 版本要求 (解决 rpcd-mod-luci 要求的 3.31 与环境 3.26 的冲突)
+# 遍历 feeds 目录，将所有 CMakeLists.txt 中的 3.31 要求降低到 3.26
+find ./feeds -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.26)/g' {} +
+
+echo "  已完成固件精简、IPv6 封杀以及 CMake 版本补丁注入。"
 
 echo ">>> CB-Shield-Q30 DIY Part 2 执行完毕"
