@@ -1,49 +1,109 @@
 #!/bin/sh
 # =========================================================
-# V3.0 防关联终极优化初始脚本
-# 此脚本在固件第一次启动时执行
+# CB-Shield-Q30 V3.0 动态硬件适配脚本
+# 此脚本在系统初始化过程中执行，确保护卫舰定制功能与底层驱动解耦
 # =========================================================
 
-# 1. 净化 NTP 服务器，彻底剔除国内指纹，改用国际公共池
-uci -q delete system.ntp.server
-uci add_list system.ntp.server='time.cloudflare.com'
-uci add_list system.ntp.server='time.google.com'
-uci add_list system.ntp.server='pool.ntp.org'
-uci commit system
+# --- 1. 基础系统与网络优化 ---
+uci -q batch <<EOF
+    # LAN IP 改回 192.168.10.1
+    set network.lan.ipaddr='192.168.10.1'
+    
+    # 彻底剔除国内 NTP，改用国际公共池
+    delete system.ntp.server
+    add_list system.ntp.server='time.cloudflare.com'
+    add_list system.ntp.server='time.google.com'
+    add_list system.ntp.server='pool.ntp.org'
+    
+    # Dnsmasq 优化 (扩容缓存)
+    set dhcp.@dnsmasq[0].cachesize='1500'
+EOF
 
-# 2. 扩容 DNSmasq 缓存池 (提升防泄漏后的解析体验)
-uci set dhcp.@dnsmasq[0].cachesize='1500'
-uci commit dhcp
+# --- 2. 动态重建跨境独立网络接口 (Shop1 - Shop5) ---
+for i in 1 2 3 4 5; do
+    uci -q batch <<EOF
+        set network.shop$i=interface
+        set network.shop$i.proto='static'
+        set network.shop$i.ipaddr="192.168.10$i.1"
+        set network.shop$i.netmask='255.255.255.0'
+        set network.shop$i.disabled='1'
+EOF
+done
+uci commit network
 
-# 3. 创建 MAC 随机化守护脚本 (仅针对电商 VLAN SSID)
-# 此脚本每次开机都会为 ecom SSID 生成一个合法且随机的私有 MAC 地址
+# --- 3. 动态重建无线环境 (1 Office + 5 Shops) ---
+# 仅在检测到无线电磁载波时执行，避免报错
+[ -n "$(uci -q get wireless.radio0)" ] && {
+    # 2.4G 基础配置
+    uci -q batch <<EOF
+        set wireless.radio0.channel='auto'
+        set wireless.radio0.band='2g'
+        set wireless.radio0.htmode='HE40'
+        set wireless.radio0.country='CN'
+        set wireless.radio0.cell_density='0'
+        
+        # 2.4G Office SSID
+        set wireless.office_24g=wifi-iface
+        set wireless.office_24g.device='radio0'
+        set wireless.office_24g.mode='ap'
+        set wireless.office_24g.ssid='CB-Shield-Office'
+        set wireless.office_24g.network='lan'
+        set wireless.office_24g.encryption='psk2'
+        set wireless.office_24g.key='CBShield@Office2024'
+EOF
+}
+
+[ -n "$(uci -q get wireless.radio1)" ] && {
+    # 5G 基础配置
+    uci -q batch <<EOF
+        set wireless.radio1.channel='auto'
+        set wireless.radio1.band='5g'
+        set wireless.radio1.htmode='HE160'
+        set wireless.radio1.country='CN'
+        set wireless.radio1.cell_density='0'
+        
+        # 5G Office SSID
+        set wireless.office_5g=wifi-iface
+        set wireless.office_5g.device='radio1'
+        set wireless.office_5g.mode='ap'
+        set wireless.office_5g.ssid='CB-Shield-Office-5G'
+        set wireless.office_5g.network='lan'
+        set wireless.office_5g.encryption='psk2+ccmp'
+        set wireless.office_5g.key='CBShield@Office2024'
+EOF
+
+    # 5G Shop1 - Shop5 SSIDs
+    for i in 1 2 3 4 5; do
+        uci -q batch <<EOF
+            set wireless.shop${i}_5g=wifi-iface
+            set wireless.shop${i}_5g.device='radio1'
+            set wireless.shop${i}_5g.mode='ap'
+            set wireless.shop${i}_5g.ssid="CB-Shop-0$i"
+            set wireless.shop${i}_5g.network="shop$i"
+            set wireless.shop${i}_5g.encryption='sae-mixed'
+            set wireless.shop${i}_5g.key="Shop$i@Password"
+            set wireless.shop${i}_5g.isolate='1'
+            set wireless.shop${i}_5g.disabled='1'
+EOF
+    done
+}
+uci commit wireless
+
+# --- 4. 生成 MAC 随机化守护脚本 ---
 cat << 'EOF' > /etc/init.d/mac_randomizer
 #!/bin/sh /etc/rc.common
-
 START=15
-STOP=85
-
 start() {
-    # 生成合法的本地管理 MAC 地址 (第二个十六进制字符必须是 2, 6, A, 或 E)
-    # 形如: 02:xx:xx:xx:xx:xx
-    
-    # 修改 2.4G 电商 SSID
-    if uci -q get wireless.ecom_24g >/dev/null; then
-        NEW_MAC24="02:$(hexdump -n 5 -e '5/1 "%02x:"' /dev/urandom | sed 's/.$//')"
-        uci set wireless.ecom_24g.macaddr="$NEW_MAC24"
-    fi
-    
-    # 修改 5G 电商 SSID
-    if uci -q get wireless.ecom_5g >/dev/null; then
-        NEW_MAC50="02:$(hexdump -n 5 -e '5/1 "%02x:"' /dev/urandom | sed 's/.$//')"
-        uci set wireless.ecom_5g.macaddr="$NEW_MAC50"
-    fi
-    
+    # 每次开机为选定的 Shop SSID 生成随机 MAC
+    for i in 1 2 3 4 5; do
+        if uci -q get wireless.shop${i}_5g >/dev/null; then
+            NEW_MAC="02:$(hexdump -n 5 -e '5/1 "%02x:"' /dev/urandom | sed 's/.$//')"
+            uci set wireless.shop${i}_5g.macaddr="$NEW_MAC"
+        fi
+    done
     uci commit wireless
 }
 EOF
-
-# 赋予执行权限并设为开机自启
 chmod +x /etc/init.d/mac_randomizer
 /etc/init.d/mac_randomizer enable
 
