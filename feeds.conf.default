@@ -1,13 +1,13 @@
 # CB-Shield-Q30 Feeds 配置
-# OpenWrt 官方源
+# OpenWrt 官方源 (强制锁定在 23.05 稳定分支)
 src-git packages https://git.openwrt.org/feed/packages.git;openwrt-23.05
 src-git luci https://git.openwrt.org/project/luci.git;openwrt-23.05
 src-git routing https://git.openwrt.org/feed/routing.git;openwrt-23.05
 src-git telephony https://git.openwrt.org/feed/telephony.git;openwrt-23.05
 
-# Passwall 代理源
-src-git passwall https://github.com/openwrt-passwall/openwrt-passwall.git;main
-src-git passwall_packages https://github.com/openwrt-passwall/openwrt-passwall-packages.git;main
+# Passwall 代理源 (强制锁定在 2025年12月 兼容版本，避免 Go 1.24 冲突)
+src-git passwall https://github.com/openwrt-passwall/openwrt-passwall.git;b93946a6f6984714db256f08537cdcdcd3523f25
+src-git passwall_packages https://github.com/openwrt-passwall/openwrt-passwall-packages.git;52a52b870661baac88e1912a19067c621580c8bc
 
-# Kwrt 特色软件包源
-src-git kwrt https://github.com/kiddin9/op-packages.git;main
+# Kwrt 特色软件包源 (强制锁定在 2025年12月 兼容版本)
+src-git kwrt https://github.com/kiddin9/op-packages.git;4384a37719f96b27e8a9f6d49ca02ce414757c2a

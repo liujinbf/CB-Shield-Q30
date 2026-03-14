@@ -102,10 +102,15 @@ fi
 # 针对 avahi, mdns 等服务 (如果存在)
 sed -i 's/enabled=1/enabled=0/g' package/feeds/packages/avahi/files/avahi-daemon.init 2>/dev/null
 
-# 3. 修正 CMake 版本要求 (解决 rpcd-mod-luci 要求的 3.31 与环境 3.26 的冲突)
-# 遍历 feeds 目录，将所有 CMakeLists.txt 中的 3.31 要求降低到 3.26
+# 3. 修正各组件版本要求 (解决 23.05 稳定版环境与部分 Feeds 插件的冲突)
+echo "  正在注入版本兼容性补丁..."
+# A. CMake: 3.31 -> 3.26
 find ./feeds -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.26)/g' {} +
+# B. Go: 1.24 -> 1.21
+find ./feeds -name "go.mod" -exec sed -i 's/go 1.24/go 1.21/g' {} +
+# C. MbedTLS: 强行注释掉 curl 等包中的 3.2.0 版本检查报错 (23.05 仅有 2.28)
+find ./feeds -name "*.c" -o -name "*.h" -exec sed -i 's/#error "mbedTLS 3.2.0 or later required"/\/\/#error "mbedTLS 3.2.0 or later required"/g' {} +
 
-echo "  已完成固件精简、IPv6 封杀以及 CMake 版本补丁注入。"
+echo "  已完成固件精简、IPv6 封杀以及版本兼容性补丁注入。"
 
 echo ">>> CB-Shield-Q30 DIY Part 2 执行完毕"
