@@ -54,28 +54,18 @@ EOF
 find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
 echo "  已应用 DTS 引导参数全局修正。"
 
-# 2. 强制回归 .bin (UBI) 打包格式 (解决 U-Boot 报 IBT 错误)
-# 针对 JCG Q30 Pro 重新定义打包逻辑，忽略官方的 .itb 默认配置
+# 2. 强制回归 .bin (UBI) 打包格式并保留功能包集成
+# 针对 JCG Q30 Pro 使用非破坏性插入，强制生成 .factory.bin 并补充驱动
 MK_FILE="target/linux/mediatek/image/filogic.mk"
 if [ -f "$MK_FILE" ]; then
-    sed -i '/define Device\/jcg_q30-pro/,/endef/c\
-define Device\/jcg_q30-pro\
-  DEVICE_VENDOR := JCG\
-  DEVICE_MODEL := Q30 PRO\
-  DEVICE_DTS := mt7981b-jcg-q30-pro\
-  DEVICE_DTS_DIR := ../dts\
-  UBINIZE_OPTS := -E 5\
-  BLOCKSIZE := 128k\
-  PAGESIZE := 2048\
-  IMAGE_SIZE := 114816k\
-  KERNEL_IN_UBI := 1\
-  UBOOTENV_IN_UBI := 1\
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware\
-  IMAGES += factory.bin sysupgrade.bin\
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)\
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata\
-endef' "$MK_FILE"
-    echo "  已硬核注入 .bin (UBI) 镜像生成逻辑，彻底停用 .itb。"
+    # 在 jcg_q30-pro 定义块的 endef 之前插入生成规则，这样不会破坏原始继承
+    sed -i '/define Device\/jcg_q30-pro/,/endef/ { /endef/i \
+  IMAGES += factory.bin\
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+    }' "$MK_FILE"
+    # 同时确保驱动包不会丢失
+    sed -i '/define Device\/jcg_q30-pro/,/endef/ s/DEVICE_PACKAGES :=/DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware /' "$MK_FILE"
+    echo "  已安全注入 .bin 生成规则到 $MK_FILE"
 fi
 
 # === 固件极致瘦身与安全加固 (由 Antigravity 注入) ===
@@ -104,14 +94,14 @@ echo "  正在强制开启 WiFi 默认广播..."
 # 修改 mac80211 脚本，将所有 radio 的默认状态从 disabled '1' 改为 '0'
 sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || true
 
-# 5. 设置全中文环境与默认主题
-echo "  正在配置全中文界面与 Argon 主题..."
-# 设置 LuCI 默认语言为中文
-sed -i 's/option lang auto/option lang zh_cn/g' package/lean/default-settings/files/zzz-default-settings || true
-# 如果存在 luci-theme-argon，将其设为默认主题
-sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/modules/luci-base/root/etc/config/luci || true
+# 5. UI 预配置补丁 (防止原生 UI 出现)
+# 注意：23.05 官方源码路径可能与 Lean 源码不同，我们将重心放在 files/ 覆盖和 uci-defaults 上
+echo "  UI 与 地区补丁已统一部署至 uci-defaults 脚本中。"
 
-echo "  UI 与 WiFi 补丁注入完成。"
+# 3. 修正各组件版本要求 (解决 23.05 稳定版环境与部分 Feeds 插件的冲突)
+echo "  正在注入版本兼容性补丁..."
+# A. CMake: 3.31 -> 3.26
+find ./feeds -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.26)/g' {} +
 # B. Go: 1.24 -> 1.21
 find ./feeds -name "go.mod" -exec sed -i 's/go 1.24/go 1.21/g' {} +
 # C. MbedTLS: 强行注释掉 curl 等包中的 3.2.0 版本检查报错 (23.05 仅有 2.28)

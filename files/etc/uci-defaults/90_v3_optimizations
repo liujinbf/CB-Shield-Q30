@@ -4,6 +4,18 @@
 # 此脚本在系统初始化过程中执行，确保护卫舰定制功能与底层驱动解耦
 # =========================================================
 
+# --- 0. 全局 UI 与 语言初始化 (适配 23.05) ---
+uci -q batch <<EOF
+    set luci.main.lang='zh_cn'
+    set luci.main.mediaurlbase='/luci-static/argon'
+    commit luci
+    
+    set system.@system[0].hostname='CB-Shield-Q30'
+    set system.@system[0].timezone='CST-8'
+    set system.@system[0].zonename='Asia/Shanghai'
+    commit system
+EOF
+
 # --- 1. 基础系统与网络优化 ---
 uci -q batch <<EOF
     # LAN IP 改回 192.168.10.1

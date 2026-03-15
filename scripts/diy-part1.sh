@@ -23,11 +23,17 @@ git clone --depth 100 https://github.com/openwrt-passwall/openwrt-passwall-packa
 git clone --depth 100 https://github.com/kiddin9/op-packages.git feeds/kwrt
 (cd feeds/kwrt && git checkout 4384a37719f96b27e8a9f6d49ca02ce414757c2a)
 
+# Argon Theme (确保即使上游源挂了也能拿到界面)
+git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git feeds/argon
+git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git feeds/argon_config
+
 # 2. 修改 feeds.conf.default，将外部源转为本地链接 (src-link)
 # 这样 scripts/feeds update 就不会尝试去覆盖我们手动锁定的版本
 sed -i 's|^src-git.*passwall .*|src-link passwall feeds/passwall|' feeds.conf.default
 sed -i 's|^src-git.*passwall_packages .*|src-link passwall_packages feeds/passwall_packages|' feeds.conf.default
 sed -i 's|^src-git.*kwrt .*|src-link kwrt feeds/kwrt|' feeds.conf.default
+sed -i 's|^src-git.*argon .*|src-link argon feeds/argon|' feeds.conf.default
+sed -i 's|^src-git.*argon_config .*|src-link argon_config feeds/argon_config|' feeds.conf.default
 
 echo "  外部源锁定完成。"
 

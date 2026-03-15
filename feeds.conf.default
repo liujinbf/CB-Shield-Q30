@@ -9,5 +9,9 @@ src-git telephony https://git.openwrt.org/feed/telephony.git;openwrt-23.05
 src-git passwall https://github.com/openwrt-passwall/openwrt-passwall.git;main
 src-git passwall_packages https://github.com/openwrt-passwall/openwrt-passwall-packages.git;main
 
+# Jerrykuku Argon 主题源
+src-git argon https://github.com/jerrykuku/luci-theme-argon.git;master
+src-git argon_config https://github.com/jerrykuku/luci-app-argon-config.git;master
+
 # Kwrt 特色软件包源 (后期由 diy-part1.sh 手动锁定)
 src-git kwrt https://github.com/kiddin9/op-packages.git;main
