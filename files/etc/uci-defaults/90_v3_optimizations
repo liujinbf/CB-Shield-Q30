@@ -8,12 +8,30 @@
 uci -q batch <<EOF
     set luci.main.lang='zh_cn'
     set luci.main.mediaurlbase='/luci-static/argon'
+    set luci.main.internal_auth='1'
     commit luci
     
+    # 强制设定默认主题为 Argon
+    set luci.themes.Argon='/luci-static/argon'
+    commit luci
+
     set system.@system[0].hostname='CB-Shield-Q30'
     set system.@system[0].timezone='CST-8'
     set system.@system[0].zonename='Asia/Shanghai'
     commit system
+EOF
+
+# --- 0.1 首页重定向安全补丁 (取代暴力 Hack) ---
+# 创建一个简单的重定向控制器，将 /cgi-bin/luci 直接导向仪表盘
+mkdir -p /usr/lib/lua/luci/controller/admin/
+cat << 'EOF' > /usr/lib/lua/luci/controller/admin/index.lua
+module("luci.controller.admin.index", package.seeall)
+function index()
+    local root = node()
+    if not root.target then
+        root.target = alias("admin", "cbshield", "dashboard")
+    end
+end
 EOF
 
 # --- 1. 基础系统与网络优化 ---

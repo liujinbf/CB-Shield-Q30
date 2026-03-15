@@ -54,37 +54,42 @@ cat > package/base-files/files/etc/banner << 'EOF'
 EOF
 
 # 1. 修正 JCG Q30 Pro 的 DTS 引导参数 (关键：移除 root=/dev/fit0 以适配第三方 U-Boot)
-# 使用通配符搜索，确保无论源码文件名是 mt7981 还是 mt7981b 都能精准打击
-# 这一步是解决“红灯”不引导的核心关键
 find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
 echo "  已应用 DTS 引导参数全局修正。"
 
-# 2. 【核心修复】强制回归全 .bin 打包格式 (解决 U-Boot 报 IBT/Wrong File 错误)
-# 之前的 sed 补丁仅是追加 IMAGES，导致依然生成了 .itb。现在采用强制覆盖策略。
+# 2. 【终极打包修复】强制回归全 .bin 格式，并确保无线驱动链条完整
+# 23.05 官方源码中，JCG Q30 Pro 默认只生出 .itb。我们必须手动追加传统的 UBI 镜像。
 MK_FILE="target/linux/mediatek/image/filogic.mk"
 if [ -f "$MK_FILE" ]; then
-    # 彻底重写 Device/jcg_q30-pro 块，移除所有 .itb 定义，强制锁定为 .bin (UBI)
-    sed -i '/define Device\/jcg_q30-pro/,/endef/c\
-define Device/jcg_q30-pro\
-  DEVICE_VENDOR := JCG\
-  DEVICE_MODEL := Q30 PRO\
-  DEVICE_DTS := mt7981b-jcg-q30-pro\
-  DEVICE_DTS_DIR := ../dts\
-  UBINIZE_OPTS := -E 5\
-  BLOCKSIZE := 128k\
-  PAGESIZE := 2048\
-  IMAGE_SIZE := 114816k\
-  KERNEL_IN_UBI := 1\
-  UBOOTENV_IN_UBI := 1\
-  IMAGES := factory.bin sysupgrade.bin\
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)\
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata\
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware\
-  ARTIFACTS := preloader.bin bl31-uboot.fip\
-  ARTIFACT/preloader.bin := mt7981-bl2 spim-nand-ddr3\
-  ARTIFACT/bl31-uboot.fip := mt7981-bl31-uboot jcg_q30-pro\
-endef' "$MK_FILE"
-    echo "  已硬核重写 $MK_FILE，彻底根除 .itb 生成逻辑。"
+    # 先恢复官方定义，然后精准插入我们需要的 IMAGES 追加规则
+    # 这样可以保留官方所有的默认编译宏和依赖
+    sed -i '/define Device\/jcg_q30-pro/,/endef/ {
+        s/IMAGES := sysupgrade.itb/IMAGES := factory.bin sysupgrade.bin/
+        /DEVICE_PACKAGES :=/ s/$/ luci-theme-argon luci-app-passwall luci-theme-cbshield cb-riskcontrol/
+    }' "$MK_FILE"
+    
+    # 定义 factory.bin 的打包细则
+    # 注意：IMAGE/factory.bin 需要在块内或紧随其后定义
+    sed -i '/IMAGE\/sysupgrade.itb/i \  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)' "$MK_FILE"
+    sed -i '/IMAGE\/sysupgrade.itb/c \  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata' "$MK_FILE"
+    
+    echo "  已优化 $MK_FILE：强制 .bin 输出并固化核心插件包。"
+fi
+
+# 3. 修正 mac80211 脚本，确保无线默认开启
+sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || true
+
+# 4. 彻底撤销危险的 LuCI 核心代码 Hack (这是导致界面 THEME FALLBACK 的元凶)
+# 首页重定向将统一由 uci-defaults 脚本安全处理
+echo "  已跳过核心代码 Hack，转为安全重定向模式。"
+
+# 5. 确保自定义包目录存在并刷新编译索引
+mkdir -p package/custom
+mv package/cb-riskcontrol package/custom/ 2>/dev/null || true
+mv package/luci-theme-cbshield package/custom/ 2>/dev/null || true
+# 修改 uhttpd 的默认配置生成，禁用版本显示和干扰探测
+if [ -f "package/network/services/uhttpd/files/uhttpd.config" ]; then
+    sed -i '/config uhttpd main/a \	option banner 0' package/network/services/uhttpd/files/uhttpd.config
 fi
 
 # === 固件极致瘦身与安全加固 (由 Antigravity 注入) ===
@@ -94,10 +99,7 @@ sed -i 's/.*ip6assign.*/\t\tset network.lan.ip6assign=0/g' package/base-files/fi
 sed -i 's/.*ip6gw.*/\t\tset network.wan.ip6gw=0/g' package/base-files/files/bin/config_generate
 
 # 2. 移除 uhttpd 服务器特征响应头 (隐私增强)
-# 修改 uhttpd 的默认配置生成，禁用版本显示和干扰探测
-if [ -f "package/network/services/uhttpd/files/uhttpd.config" ]; then
-    sed -i '/config uhttpd main/a \	option banner 0' package/network/services/uhttpd/files/uhttpd.config
-fi
+# This section is now handled above, moved for logical grouping.
 
 # 3. 禁用一些消耗资源的 mDNS 组播服务守护 (防局域网探测)
 # 针对 avahi, mdns 等服务 (如果存在)

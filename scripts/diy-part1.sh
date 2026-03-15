@@ -7,33 +7,32 @@
 
 echo ">>> CB-Shield-Q30 DIY Part 1 开始执行..."
 
-# 1. 手动克隆并锁定外部 Feed 到兼容版本 (避开 Go 1.24 和 MbedTLS 3.x 冲突)
-mkdir -p feeds
-echo "  正在手动克隆并锁定外部插件源..."
+# 1. 准备自定义 Feeds 存储目录 (避开系统 feeds 文件夹)
+mkdir -p custom_feeds
+echo "  正在克隆外部插件源到 custom_feeds/..."
 
 # Passwall
-git clone --depth 100 https://github.com/openwrt-passwall/openwrt-passwall.git feeds/passwall
-(cd feeds/passwall && git checkout b93946a6f6984714db256f08537cdcdcd3523f25)
+git clone --depth 100 https://github.com/openwrt-passwall/openwrt-passwall.git custom_feeds/passwall
+(cd custom_feeds/passwall && git checkout b93946a6f6984714db256f08537cdcdcd3523f25)
 
 # Passwall Packages
-git clone --depth 100 https://github.com/openwrt-passwall/openwrt-passwall-packages.git feeds/passwall_packages
-(cd feeds/passwall_packages && git checkout 52a52b870661baac88e1912a19067c621580c8bc)
+git clone --depth 100 https://github.com/openwrt-passwall/openwrt-passwall-packages.git custom_feeds/passwall_packages
+(cd custom_feeds/passwall_packages && git checkout 52a52b870661baac88e1912a19067c621580c8bc)
 
 # Kwrt (op-packages)
-git clone --depth 100 https://github.com/kiddin9/op-packages.git feeds/kwrt
-(cd feeds/kwrt && git checkout 4384a37719f96b27e8a9f6d49ca02ce414757c2a)
+git clone --depth 100 https://github.com/kiddin9/op-packages.git custom_feeds/kwrt
+(cd custom_feeds/kwrt && git checkout 4384a37719f96b27e8a9f6d49ca02ce414757c2a)
 
-# Argon Theme (确保即使上游源挂了也能拿到界面)
-git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git feeds/argon
-git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git feeds/argon_config
+# Argon Theme
+git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git custom_feeds/argon
+git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git custom_feeds/argon_config
 
-# 2. 修改 feeds.conf.default，将外部源转为本地链接 (src-link)
-# 这样 scripts/feeds update 就不会尝试去覆盖我们手动锁定的版本
-sed -i 's|^src-git.*passwall .*|src-link passwall feeds/passwall|' feeds.conf.default
-sed -i 's|^src-git.*passwall_packages .*|src-link passwall_packages feeds/passwall_packages|' feeds.conf.default
-sed -i 's|^src-git.*kwrt .*|src-link kwrt feeds/kwrt|' feeds.conf.default
-sed -i 's|^src-git.*argon .*|src-link argon feeds/argon|' feeds.conf.default
-sed -i 's|^src-git.*argon_config .*|src-link argon_config feeds/argon_config|' feeds.conf.default
+# 2. 修改 feeds.conf.default，使用自定义路径
+sed -i 's|^src-git.*passwall .*|src-link passwall ../custom_feeds/passwall|' feeds.conf.default
+sed -i 's|^src-git.*passwall_packages .*|src-link passwall_packages ../custom_feeds/passwall_packages|' feeds.conf.default
+sed -i 's|^src-git.*kwrt .*|src-link kwrt ../custom_feeds/kwrt|' feeds.conf.default
+sed -i 's|^src-git.*argon .*|src-link argon ../custom_feeds/argon|' feeds.conf.default
+sed -i 's|^src-git.*argon_config .*|src-link argon_config ../custom_feeds/argon_config|' feeds.conf.default
 
 echo "  外部源锁定完成。"
 
