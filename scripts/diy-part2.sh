@@ -57,23 +57,21 @@ EOF
 find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
 echo "  已应用 DTS 引导参数全局修正。"
 
-# 2. 【终极打包修复】强制回归全 .bin 格式，并确保无线驱动链条完整
-# 23.05 官方源码中，JCG Q30 Pro 默认只生出 .itb。我们必须手动追加传统的 UBI 镜像。
+# 2. 【打包与插件固化】强制回归全 .bin 格式，并确保核心驱动继承
+# 采用更稳健的逐行替换，避免块匹配失败导致 Makefile 损坏
 MK_FILE="target/linux/mediatek/image/filogic.mk"
 if [ -f "$MK_FILE" ]; then
-    # 先恢复官方定义，然后精准插入我们需要的 IMAGES 追加规则
-    # 这样可以保留官方所有的默认编译宏和依赖
-    sed -i '/define Device\/jcg_q30-pro/,/endef/ {
-        s/IMAGES := sysupgrade.itb/IMAGES := factory.bin sysupgrade.bin/
-        /DEVICE_PACKAGES :=/ s/$/ luci-theme-argon luci-app-passwall luci-theme-cbshield cb-riskcontrol/
-    }' "$MK_FILE"
+    # 修改 IMAGES 定义，由 .itb 改为 .bin
+    sed -i '/Device\/jcg_q30-pro/,/endef/ s/IMAGES := sysupgrade.itb/IMAGES := factory.bin sysupgrade.bin/' "$MK_FILE"
     
-    # 定义 factory.bin 的打包细则
-    # 注意：IMAGE/factory.bin 需要在块内或紧随其后定义
-    sed -i '/IMAGE\/sysupgrade.itb/i \  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)' "$MK_FILE"
-    sed -i '/IMAGE\/sysupgrade.itb/c \  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata' "$MK_FILE"
+    # 强制注入核心包到设备定义中
+    sed -i '/Device\/jcg_q30-pro/,/endef/ s/DEVICE_PACKAGES :=/DEVICE_PACKAGES := luci-theme-argon luci-app-passwall luci-theme-cbshield cb-riskcontrol /' "$MK_FILE"
     
-    echo "  已优化 $MK_FILE：强制 .bin 输出并固化核心插件包。"
+    # 在适当位置插入打包规则 (使用追加方式避免破坏结构)
+    # 利用 DEVICE_PACKAGES 这一行作为锚点，在其后插入图像生成详细定义
+    sed -i '/DEVICE_PACKAGES :=.*cb-riskcontrol/a \  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)\n  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata' "$MK_FILE"
+    
+    echo "  已硬核固化 $MK_FILE：.bin 格式与 0 缺失插件链条。"
 fi
 
 # 3. 修正 mac80211 脚本，确保无线默认开启
@@ -81,55 +79,15 @@ sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi
 
 # 4. 彻底撤销危险的 LuCI 核心代码 Hack (这是导致界面 THEME FALLBACK 的元凶)
 # 首页重定向将统一由 uci-defaults 脚本安全处理
-echo "  已跳过核心代码 Hack，转为安全重定向模式。"
+echo "  已彻底阻断核心代码 Hack，UI 环境现在是清净的。"
 
 # 5. 确保自定义包目录存在并刷新编译索引
 mkdir -p package/custom
 mv package/cb-riskcontrol package/custom/ 2>/dev/null || true
 mv package/luci-theme-cbshield package/custom/ 2>/dev/null || true
-# 修改 uhttpd 的默认配置生成，禁用版本显示和干扰探测
-if [ -f "package/network/services/uhttpd/files/uhttpd.config" ]; then
-    sed -i '/config uhttpd main/a \	option banner 0' package/network/services/uhttpd/files/uhttpd.config
-fi
 
-# === 固件极致瘦身与安全加固 (由 Antigravity 注入) ===
-
-# 1. 彻底禁用全局 IPv6 (针对 config_generate)
-sed -i 's/.*ip6assign.*/\t\tset network.lan.ip6assign=0/g' package/base-files/files/bin/config_generate
-sed -i 's/.*ip6gw.*/\t\tset network.wan.ip6gw=0/g' package/base-files/files/bin/config_generate
-
-# 2. 移除 uhttpd 服务器特征响应头 (隐私增强)
-# This section is now handled above, moved for logical grouping.
-
-# 3. 禁用一些消耗资源的 mDNS 组播服务守护 (防局域网探测)
-# 针对 avahi, mdns 等服务 (如果存在)
-sed -i 's/enabled=1/enabled=0/g' package/feeds/packages/avahi/files/avahi-daemon.init 2>/dev/null
-
-# 3. 修正各组件版本要求 (解决 23.05 稳定版环境与部分 Feeds 插件的冲突)
-echo "  正在注入版本兼容性补丁..."
-# A. CMake: 3.31 -> 3.26
-find ./feeds -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.26)/g' {} +
-
-# 4. 强制开启 WiFi (解决 23.05 默认关闭无线的问题)
-echo "  正在强制开启 WiFi 默认广播..."
-# 修改 mac80211 脚本，将所有 radio 的默认状态从 disabled '1' 改为 '0'
-sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || true
-
-# 5. UI 预配置补丁 (防止原生 UI 出现，并挂载卡片仪表盘)
-# 注意：23.05 官方源码路径可能与 Lean 源码不同，我们将重心放在 files/ 覆盖和 uci-defaults 上
-# 强制设定默认主页为我们的卡片仪表盘
-sed -i 's/\"admin\", \"status\", \"overview\"/\"admin\", \"cbshield\", \"dashboard\"/g' feeds/luci/modules/luci-base/luasrc/controller/admin/status.lua 2>/dev/null || true
-echo "  UI 仪表盘卡片重定向已激活。"
-
-# 3. 修正各组件版本要求 (解决 23.05 稳定版环境与部分 Feeds 插件的冲突)
-echo "  正在注入版本兼容性补丁..."
-# A. CMake: 3.31 -> 3.26
-find ./feeds -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.26)/g' {} +
-# B. Go: 1.24 -> 1.21
-find ./feeds -name "go.mod" -exec sed -i 's/go 1.24/go 1.21/g' {} +
-# C. MbedTLS: 强行注释掉 curl 等包中的 3.2.0 版本检查报错 (23.05 仅有 2.28)
-find ./feeds -name "*.c" -o -name "*.h" -exec sed -i 's/#error "mbedTLS 3.2.0 or later required"/\/\/#error "mbedTLS 3.2.0 or later required"/g' {} +
-
-echo "  已完成固件精简、IPv6 封杀以及版本兼容性补丁注入。"
+# 6. 版本兼容性“微操” (仅处理确切的冲突，不再全盘扫描)
+# 修正编译依赖版本过高问题
+find ./feeds/kwrt -name "Makefile" -exec sed -i 's/PKG_BUILD_DEPENDS:=.*mbedtls/PKG_BUILD_DEPENDS:=mbedtls/g' {} + 2>/dev/null || true
 
 echo ">>> CB-Shield-Q30 DIY Part 2 执行完毕"

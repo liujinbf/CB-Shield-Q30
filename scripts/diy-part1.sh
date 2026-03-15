@@ -27,12 +27,12 @@ git clone --depth 100 https://github.com/kiddin9/op-packages.git custom_feeds/kw
 git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git custom_feeds/argon
 git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git custom_feeds/argon_config
 
-# 2. 修改 feeds.conf.default，使用自定义路径
-sed -i 's|^src-git.*passwall .*|src-link passwall ../custom_feeds/passwall|' feeds.conf.default
-sed -i 's|^src-git.*passwall_packages .*|src-link passwall_packages ../custom_feeds/passwall_packages|' feeds.conf.default
-sed -i 's|^src-git.*kwrt .*|src-link kwrt ../custom_feeds/kwrt|' feeds.conf.default
-sed -i 's|^src-git.*argon .*|src-link argon ../custom_feeds/argon|' feeds.conf.default
-sed -i 's|^src-git.*argon_config .*|src-link argon_config ../custom_feeds/argon_config|' feeds.conf.default
+# 2. 修改 feeds.conf.default，使用相对路径 (相对于 openwrt 根目录)
+sed -i 's|^src-git.*passwall .*|src-link passwall custom_feeds/passwall|' feeds.conf.default
+sed -i 's|^src-git.*passwall_packages .*|src-link passwall_packages custom_feeds/passwall_packages|' feeds.conf.default
+sed -i 's|^src-git.*kwrt .*|src-link kwrt custom_feeds/kwrt|' feeds.conf.default
+sed -i 's|^src-git.*argon .*|src-link argon custom_feeds/argon|' feeds.conf.default
+sed -i 's|^src-git.*argon_config .*|src-link argon_config custom_feeds/argon_config|' feeds.conf.default
 
 echo "  外部源锁定完成。"
 
