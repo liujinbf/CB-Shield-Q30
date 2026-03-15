@@ -31,9 +31,15 @@ EOF
 done
 uci commit network
 
-# --- 3. 动态重建无线环境 (1 Office + 5 Shops) ---
-# 仅在检测到无线电磁载波时执行，避免报错
-[ -n "$(uci -q get wireless.radio0)" ] && {
+# --- 2. 动态重建无线环境 (1 Office + 5 Shops) ---
+# 先执行探测，生成基于当前内核识别到的物理路径的初始配置
+[ ! -f "/etc/config/wireless" ] && wifi detect > /etc/config/wireless
+
+# 获取 radio 名称并进行配置 (MT7981 通常有 radio0 和 radio1)
+RADIO0=$(uci -q get wireless.radio0.type)
+RADIO1=$(uci -q get wireless.radio1.type)
+
+[ -n "$RADIO0" ] && {
     # 2.4G 基础配置
     uci -q batch <<EOF
         set wireless.radio0.channel='auto'
@@ -53,7 +59,7 @@ uci commit network
 EOF
 }
 
-[ -n "$(uci -q get wireless.radio1)" ] && {
+[ -n "$RADIO1" ] && {
     # 5G 基础配置
     uci -q batch <<EOF
         set wireless.radio1.channel='auto'

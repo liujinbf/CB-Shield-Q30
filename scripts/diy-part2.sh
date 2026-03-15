@@ -106,6 +106,20 @@ sed -i 's/enabled=1/enabled=0/g' package/feeds/packages/avahi/files/avahi-daemon
 echo "  正在注入版本兼容性补丁..."
 # A. CMake: 3.31 -> 3.26
 find ./feeds -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.26)/g' {} +
+
+# 4. 强制开启 WiFi (解决 23.05 默认关闭无线的问题)
+echo "  正在强制开启 WiFi 默认广播..."
+# 修改 mac80211 脚本，将所有 radio 的默认状态从 disabled '1' 改为 '0'
+sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || true
+
+# 5. 设置全中文环境与默认主题
+echo "  正在配置全中文界面与 Argon 主题..."
+# 设置 LuCI 默认语言为中文
+sed -i 's/option lang auto/option lang zh_cn/g' package/lean/default-settings/files/zzz-default-settings || true
+# 如果存在 luci-theme-argon，将其设为默认主题
+sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/modules/luci-base/root/etc/config/luci || true
+
+echo "  UI 与 WiFi 补丁注入完成。"
 # B. Go: 1.24 -> 1.21
 find ./feeds -name "go.mod" -exec sed -i 's/go 1.24/go 1.21/g' {} +
 # C. MbedTLS: 强行注释掉 curl 等包中的 3.2.0 版本检查报错 (23.05 仅有 2.28)
