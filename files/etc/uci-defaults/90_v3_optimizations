@@ -43,6 +43,29 @@ EOF
 done
 uci commit network
 
+# --- 6. 落地页跳转逻辑 (V3.0 Portal 核心) ---
+# 将所有来自 Shop 隔离网络的 HTTP (80) 流量强制重定向至本地落地页 (8080)
+# 这样用户连接 WiFi 后尝试打开网页，会立即跳转到我们的品牌页面
+iptables -t nat -A PREROUTING -i shop1 -p tcp --dport 80 -j DNAT --to-destination :8080
+iptables -t nat -A PREROUTING -i shop2 -p tcp --dport 80 -j DNAT --to-destination :8080
+iptables -t nat -A PREROUTING -i shop3 -p tcp --dport 80 -j DNAT --to-destination :8080
+iptables -t nat -A PREROUTING -i shop4 -p tcp --dport 80 -j DNAT --to-destination :8080
+iptables -t nat -A PREROUTING -i shop5 -p tcp --dport 80 -j DNAT --to-destination :8080
+
+# 确保对应的防火墙规则持久化 (针对 nftables/fw4)
+cat << 'EOF' >> /etc/firewall.user
+# CB-Shield Portal Redirect
+for i in 1 2 3 4 5; do
+    iptables -t nat -A PREROUTING -i shop$i -p tcp --dport 80 -j DNAT --to-destination :8080 2>/dev/null
+done
+EOF
+
+# 强制开启风控与落地页服务
+/etc/init.d/cb-portal enable
+/etc/init.d/cb-portal start
+/etc/init.d/cb-riskcontrol enable
+/etc/init.d/cb-riskcontrol start
+
 # --- 2. 动态重建无线环境 (1 Office + 5 Shops) ---
 # 先执行探测并强制设置国家码，改善兼容性
 wifi detect > /etc/config/wireless

@@ -25,6 +25,11 @@ if [ -d "$GITHUB_WORKSPACE/files" ]; then
     echo "  已复制 files/ 文件系统覆盖"
 fi
 
+# 确保自定义包目录存在并刷新编译索引
+mkdir -p package/custom
+mv package/cb-riskcontrol package/custom/ 2>/dev/null || true
+mv package/luci-theme-cbshield package/custom/ 2>/dev/null || true
+
 # 修改默认 IP（可选，根据需要调整）
 # sed -i 's/192.168.1.1/192.168.10.1/g' package/base-files/files/bin/config_generate
 
@@ -94,9 +99,11 @@ echo "  正在强制开启 WiFi 默认广播..."
 # 修改 mac80211 脚本，将所有 radio 的默认状态从 disabled '1' 改为 '0'
 sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || true
 
-# 5. UI 预配置补丁 (防止原生 UI 出现)
+# 5. UI 预配置补丁 (防止原生 UI 出现，并挂载卡片仪表盘)
 # 注意：23.05 官方源码路径可能与 Lean 源码不同，我们将重心放在 files/ 覆盖和 uci-defaults 上
-echo "  UI 与 地区补丁已统一部署至 uci-defaults 脚本中。"
+# 强制设定默认主页为我们的卡片仪表盘
+sed -i 's/\"admin\", \"status\", \"overview\"/\"admin\", \"cbshield\", \"dashboard\"/g' feeds/luci/modules/luci-base/luasrc/controller/admin/status.lua 2>/dev/null || true
+echo "  UI 仪表盘卡片重定向已激活。"
 
 # 3. 修正各组件版本要求 (解决 23.05 稳定版环境与部分 Feeds 插件的冲突)
 echo "  正在注入版本兼容性补丁..."
