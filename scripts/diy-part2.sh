@@ -49,10 +49,12 @@ cat > package/base-files/files/etc/banner << 'EOF'
 EOF
 
 # 1. 修正 JCG Q30 Pro 的 DTS 引导参数 (关键：移除 root=/dev/fit0 以适配第三方 U-Boot)
-DTS_FILE="target/linux/mediatek/dts/mt7981-jcg-q30-pro.dts"
+DTS_FILE="target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts"
 if [ -f "$DTS_FILE" ]; then
     sed -i 's/root=\/dev\/fit0 rootwait//g' "$DTS_FILE"
     echo "  已修正 DTS 引导参数: $DTS_FILE"
+else
+    echo "  警告: 未找到 DTS 文件 $DTS_FILE，请检查源码路径！"
 fi
 
 # 2. 适配 Kwrt 风格的镜像生成格式 (filogic.mk)
@@ -62,22 +64,23 @@ MK_FILE="target/linux/mediatek/image/filogic.mk"
 if [ -f "$MK_FILE" ]; then
     # 定位 Device/jcg_q30-pro 定义块并进行替换为 Kwrt 风格
     sed -i '/define Device\/jcg_q30-pro/,/endef/c\
-define Device/jcg_q30-pro\
-  DEVICE_VENDOR := JCG\
-  DEVICE_MODEL := Q30 PRO (Kwrt Style)\
-  DEVICE_DTS := mt7981b-jcg-q30-pro\
-  DEVICE_DTS_DIR := ../dts\
-  DEVICE_DTC_FLAGS := --pad 4096\
-  UBINIZE_OPTS := -E 5\
-  BLOCKSIZE := 128k\
-  PAGESIZE := 2048\
-  IMAGE_SIZE := 114816k\
-  KERNEL_IN_UBI := 1\
-  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware\
-  IMAGES += factory.bin\
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)\
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata\
-endef\
+define Device/jcg_q30-pro
+  DEVICE_VENDOR := JCG
+  DEVICE_MODEL := Q30 PRO (Kwrt Style)
+  DEVICE_DTS := mt7981b-jcg-q30-pro
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_DTC_FLAGS := --pad 4096
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 110592k
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt76 kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
 ' "$MK_FILE"
     echo "  已成功注入 Kwrt 格式打包补丁: $MK_FILE"
 fi
