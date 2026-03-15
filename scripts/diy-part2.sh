@@ -50,12 +50,33 @@ EOF
 
 # 1. 修正 JCG Q30 Pro 的 DTS 引导参数 (关键：移除 root=/dev/fit0 以适配第三方 U-Boot)
 # 使用通配符搜索，确保无论源码文件名是 mt7981 还是 mt7981b 都能精准打击
+# 这一步是解决“红灯”不引导的核心关键
 find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
 echo "  已应用 DTS 引导参数全局修正。"
 
-# 2. 补全无线卸载官方配置 (回归官方 23.05 .itb 镜像生成)
-# 我们不再修改 filogic.mk，直接利用官方受支持的 FIT 镜像格式
-echo "  已恢复官方镜像打包流程，确保与 U-Boot 网页端 100% 兼容。"
+# 2. 强制回归 .bin (UBI) 打包格式 (解决 U-Boot 报 IBT 错误)
+# 针对 JCG Q30 Pro 重新定义打包逻辑，忽略官方的 .itb 默认配置
+MK_FILE="target/linux/mediatek/image/filogic.mk"
+if [ -f "$MK_FILE" ]; then
+    sed -i '/define Device\/jcg_q30-pro/,/endef/c\
+define Device\/jcg_q30-pro\
+  DEVICE_VENDOR := JCG\
+  DEVICE_MODEL := Q30 PRO\
+  DEVICE_DTS := mt7981b-jcg-q30-pro\
+  DEVICE_DTS_DIR := ../dts\
+  UBINIZE_OPTS := -E 5\
+  BLOCKSIZE := 128k\
+  PAGESIZE := 2048\
+  IMAGE_SIZE := 114816k\
+  KERNEL_IN_UBI := 1\
+  UBOOTENV_IN_UBI := 1\
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware\
+  IMAGES += factory.bin sysupgrade.bin\
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)\
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata\
+endef' "$MK_FILE"
+    echo "  已硬核注入 .bin (UBI) 镜像生成逻辑，彻底停用 .itb。"
+fi
 
 # === 固件极致瘦身与安全加固 (由 Antigravity 注入) ===
 
