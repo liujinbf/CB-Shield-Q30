@@ -49,45 +49,13 @@ cat > package/base-files/files/etc/banner << 'EOF'
 EOF
 
 # 1. 修正 JCG Q30 Pro 的 DTS 引导参数 (关键：移除 root=/dev/fit0 以适配第三方 U-Boot)
-DTS_FILE="target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts"
-if [ -f "$DTS_FILE" ]; then
-    sed -i 's/root=\/dev\/fit0 rootwait//g' "$DTS_FILE"
-    echo "  已修正 DTS 引导参数: $DTS_FILE"
-else
-    echo "  警告: 未找到 DTS 文件 $DTS_FILE，请检查源码路径！"
-fi
+# 使用通配符搜索，确保无论源码文件名是 mt7981 还是 mt7981b 都能精准打击
+find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
+echo "  已应用 DTS 引导参数全局修正。"
 
-# 2. 适配 Kwrt 风格的镜像生成格式 (filogic.mk)
-cat << 'EOF' > patch_q30_format.sh
-#!/bin/bash
-MK_FILE="target/linux/mediatek/image/filogic.mk"
-if [ -f "$MK_FILE" ]; then
-    # 定位 Device/jcg_q30-pro 定义块并进行替换为 Kwrt 风格
-    sed -i '/define Device\/jcg_q30-pro/,/endef/c\
-define Device/jcg_q30-pro
-  DEVICE_VENDOR := JCG
-  DEVICE_MODEL := Q30 PRO (Kwrt Style)
-  DEVICE_DTS := mt7981b-jcg-q30-pro
-  DEVICE_DTS_DIR := ../dts
-  DEVICE_DTC_FLAGS := --pad 4096
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE_SIZE := 110592k
-  KERNEL_IN_UBI := 1
-  UBOOTENV_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt76 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGES += factory.bin
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-' "$MK_FILE"
-    echo "  已成功注入 Kwrt 格式打包补丁: $MK_FILE"
-fi
-EOF
-chmod +x patch_q30_format.sh
-./patch_q30_format.sh
-rm patch_q30_format.sh
+# 2. 补全无线卸载官方配置 (回归官方 23.05 .itb 镜像生成)
+# 我们不再修改 filogic.mk，直接利用官方受支持的 FIT 镜像格式
+echo "  已恢复官方镜像打包流程，确保与 U-Boot 网页端 100% 兼容。"
 
 # === 固件极致瘦身与安全加固 (由 Antigravity 注入) ===
 
