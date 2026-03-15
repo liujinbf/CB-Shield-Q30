@@ -59,18 +59,32 @@ EOF
 find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
 echo "  已应用 DTS 引导参数全局修正。"
 
-# 2. 强制回归 .bin (UBI) 打包格式并保留功能包集成
-# 针对 JCG Q30 Pro 使用非破坏性插入，强制生成 .factory.bin 并补充驱动
+# 2. 【核心修复】强制回归全 .bin 打包格式 (解决 U-Boot 报 IBT/Wrong File 错误)
+# 之前的 sed 补丁仅是追加 IMAGES，导致依然生成了 .itb。现在采用强制覆盖策略。
 MK_FILE="target/linux/mediatek/image/filogic.mk"
 if [ -f "$MK_FILE" ]; then
-    # 在 jcg_q30-pro 定义块的 endef 之前插入生成规则，这样不会破坏原始继承
-    sed -i '/define Device\/jcg_q30-pro/,/endef/ { /endef/i \
-  IMAGES += factory.bin\
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
-    }' "$MK_FILE"
-    # 同时确保驱动包不会丢失
-    sed -i '/define Device\/jcg_q30-pro/,/endef/ s/DEVICE_PACKAGES :=/DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware /' "$MK_FILE"
-    echo "  已安全注入 .bin 生成规则到 $MK_FILE"
+    # 彻底重写 Device/jcg_q30-pro 块，移除所有 .itb 定义，强制锁定为 .bin (UBI)
+    sed -i '/define Device\/jcg_q30-pro/,/endef/c\
+define Device/jcg_q30-pro\
+  DEVICE_VENDOR := JCG\
+  DEVICE_MODEL := Q30 PRO\
+  DEVICE_DTS := mt7981b-jcg-q30-pro\
+  DEVICE_DTS_DIR := ../dts\
+  UBINIZE_OPTS := -E 5\
+  BLOCKSIZE := 128k\
+  PAGESIZE := 2048\
+  IMAGE_SIZE := 114816k\
+  KERNEL_IN_UBI := 1\
+  UBOOTENV_IN_UBI := 1\
+  IMAGES := factory.bin sysupgrade.bin\
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)\
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata\
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware\
+  ARTIFACTS := preloader.bin bl31-uboot.fip\
+  ARTIFACT/preloader.bin := mt7981-bl2 spim-nand-ddr3\
+  ARTIFACT/bl31-uboot.fip := mt7981-bl31-uboot jcg_q30-pro\
+endef' "$MK_FILE"
+    echo "  已硬核重写 $MK_FILE，彻底根除 .itb 生成逻辑。"
 fi
 
 # === 固件极致瘦身与安全加固 (由 Antigravity 注入) ===
