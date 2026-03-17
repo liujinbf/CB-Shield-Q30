@@ -149,15 +149,23 @@ jobs:
       run: |
         cd openwrt/bin/targets/*/*
         ls -lh
-        test -n "$(ls *jcg_q30-pro*factory.bin 2>/dev/null)"
-        test -n "$(ls *jcg_q30-pro*sysupgrade.bin 2>/dev/null)"
+        FACTORY_IMG="$(ls *jcg_q30-pro*factory.bin 2>/dev/null | head -n1)"
+        SYSUPGRADE_IMG="$(ls *jcg_q30-pro*sysupgrade.bin 2>/dev/null | head -n1)"
         MANIFEST="$(ls *jcg_q30-pro*.manifest 2>/dev/null | head -n1)"
+        test -n "$FACTORY_IMG"
+        test -n "$SYSUPGRADE_IMG"
         test -n "$MANIFEST"
         grep -q '^luci-app-passwall ' "$MANIFEST"
         grep -q '^cb-riskcontrol ' "$MANIFEST"
         grep -q '^luci-theme-cbshield ' "$MANIFEST"
-        rm -rf packages
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        OUT_DIR="$GITHUB_WORKSPACE/artifacts"
+        rm -rf "$OUT_DIR"
+        mkdir -p "$OUT_DIR"
+        cp -f "$FACTORY_IMG" "$OUT_DIR/"
+        cp -f "$SYSUPGRADE_IMG" "$OUT_DIR/"
+        cp -f "$MANIFEST" "$OUT_DIR/"
+        sha256sum "$FACTORY_IMG" "$SYSUPGRADE_IMG" > "$OUT_DIR/SHA256SUMS"
+        echo "FIRMWARE=$OUT_DIR" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
     - name: 上传固件 Artifact
