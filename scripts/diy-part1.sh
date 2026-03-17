@@ -6,14 +6,36 @@ echo ">>> CB-Shield-Q30 DIY Part 1 start"
 # 准备外部 feeds
 mkdir -p custom_feeds
 
-git clone --depth 100 https://github.com/openwrt-passwall/openwrt-passwall.git custom_feeds/passwall
-(cd custom_feeds/passwall && git checkout b93946a6f6984714db256f08537cdcdcd3523f25)
+clone_with_optional_pin() {
+    local repo_url="$1"
+    local repo_dir="$2"
+    local pin_commit="$3"
 
-git clone --depth 100 https://github.com/openwrt-passwall/openwrt-passwall-packages.git custom_feeds/passwall_packages
-(cd custom_feeds/passwall_packages && git checkout 52a52b870661baac88e1912a19067c621580c8bc)
+    git clone --depth 1 "$repo_url" "$repo_dir"
 
-git clone --depth 100 https://github.com/kiddin9/op-packages.git custom_feeds/kwrt
-(cd custom_feeds/kwrt && git checkout 4384a37719f96b27e8a9f6d49ca02ce414757c2a)
+    if [ -n "$pin_commit" ]; then
+        if (cd "$repo_dir" && git fetch --depth 1 origin "$pin_commit" >/dev/null 2>&1 && git checkout -q "$pin_commit"); then
+            echo "Pinned $repo_dir to $pin_commit"
+        else
+            echo "WARN: pin $pin_commit not available for $repo_dir, fallback to default branch HEAD"
+        fi
+    fi
+}
+
+clone_with_optional_pin \
+    https://github.com/openwrt-passwall/openwrt-passwall.git \
+    custom_feeds/passwall \
+    b93946a6f6984714db256f08537cdcdcd3523f25
+
+clone_with_optional_pin \
+    https://github.com/openwrt-passwall/openwrt-passwall-packages.git \
+    custom_feeds/passwall_packages \
+    52a52b870661baac88e1912a19067c621580c8bc
+
+clone_with_optional_pin \
+    https://github.com/kiddin9/op-packages.git \
+    custom_feeds/kwrt \
+    4384a37719f96b27e8a9f6d49ca02ce414757c2a
 
 git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git custom_feeds/argon
 git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git custom_feeds/argon_config
