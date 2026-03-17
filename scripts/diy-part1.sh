@@ -11,7 +11,16 @@ clone_with_optional_pin() {
     local repo_dir="$2"
     local pin_commit="$3"
 
-    git clone --depth 1 "$repo_url" "$repo_dir"
+    if [ -d "$repo_dir/.git" ]; then
+        echo "Refreshing existing feed: $repo_dir"
+        git -C "$repo_dir" remote set-url origin "$repo_url"
+        git -C "$repo_dir" fetch --depth 1 origin
+        git -C "$repo_dir" reset --hard FETCH_HEAD
+        git -C "$repo_dir" clean -fd
+    else
+        rm -rf "$repo_dir"
+        git clone --depth 1 "$repo_url" "$repo_dir"
+    fi
 
     if [ -n "$pin_commit" ]; then
         if (cd "$repo_dir" && git fetch --depth 1 origin "$pin_commit" >/dev/null 2>&1 && git checkout -q "$pin_commit"); then
@@ -37,8 +46,15 @@ clone_with_optional_pin \
     custom_feeds/kwrt \
     4384a37719f96b27e8a9f6d49ca02ce414757c2a
 
-git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git custom_feeds/argon
-git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git custom_feeds/argon_config
+clone_with_optional_pin \
+    https://github.com/jerrykuku/luci-theme-argon.git \
+    custom_feeds/argon \
+    ""
+
+clone_with_optional_pin \
+    https://github.com/jerrykuku/luci-app-argon-config.git \
+    custom_feeds/argon_config \
+    ""
 
 # 用本地 src-link 覆盖远程 feed，降低网络波动影响
 sed -i 's|^src-git.*passwall .*|src-link passwall custom_feeds/passwall|' feeds.conf.default

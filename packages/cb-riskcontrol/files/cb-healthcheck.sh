@@ -6,7 +6,7 @@ read_cfg() {
     ENABLED="$(uci -q get cb-health.main.enabled || echo 1)"
     AUTO_REPAIR="$(uci -q get cb-health.main.auto_repair || echo 1)"
     INTERVAL="$(uci -q get cb-health.main.interval || echo 60)"
-    CHECK_PASSWALL="$(uci -q get cb-health.main.check_passwall || echo 1)"
+    CHECK_PROXY="$(uci -q get cb-health.main.check_proxy || uci -q get cb-health.main.check_passwall || echo 1)"
     CHECK_RISKCONTROL="$(uci -q get cb-health.main.check_riskcontrol || echo 1)"
     CHECK_PORTAL="$(uci -q get cb-health.main.check_portal || echo 1)"
     CHECK_WIFI="$(uci -q get cb-health.main.check_wifi || echo 1)"
@@ -71,7 +71,7 @@ ensure_proxy() {
         return
     fi
 
-    printf '%s|%s\n' "$(ensure_service "$proxy_service" "$CHECK_PASSWALL")" "$proxy_service"
+    printf '%s|%s\n' "$(ensure_service "$proxy_service" "$CHECK_PROXY")" "$proxy_service"
 }
 
 ensure_wifi() {

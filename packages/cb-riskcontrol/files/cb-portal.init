@@ -6,13 +6,31 @@ USE_PROCD=1
 
 PROG=/usr/sbin/uhttpd
 
-start_service() {
-    [ -x "$PROG" ] || return 1
+start_portal_instance() {
+    local home="$1"
+    local listen_http="$2"
+    local index_page="$3"
 
     procd_open_instance "cb-portal"
-    procd_set_param command "$PROG" -f -h /www/cb-portal -p 0.0.0.0:8080 -E /www/cb-portal/index.html
+    procd_set_param command "$PROG" -f -h "$home" -p "$listen_http" -E "$index_page"
     procd_set_param stderr 1
     procd_set_param stdout 1
     procd_set_param respawn
     procd_close_instance
+}
+
+start_service() {
+    local home listen_http index_page
+
+    [ -x "$PROG" ] || return 1
+    config_load cb-portal
+    config_get home cb_portal home "/www/cb-portal"
+    config_get listen_http cb_portal listen_http "0.0.0.0:8080"
+    index_page="${home%/}/index.html"
+
+    start_portal_instance "$home" "$listen_http" "$index_page"
+}
+
+service_triggers() {
+    procd_add_reload_trigger "cb-portal"
 }

@@ -164,7 +164,7 @@ function manualCheck() {
 }
 
 function fetchCloudConfig() {
-    var url = "https://raw.githubusercontent.com/liujinbf/CB-Shield-Q30/main/portal_config.json?t=" + Date.now();
+    var url = "/cb-portal/portal_config.json?t=" + Date.now();
     var button = document.getElementById("cloud-portal-btn");
     if (!button) return;
 
@@ -178,12 +178,7 @@ function fetchCloudConfig() {
                 button.style.pointerEvents = "auto";
             }
         })
-        .catch(function() {
-            button.href = "https://liujinbf.github.io/CB-Shield-Q30/";
-            button.textContent = "云端 Portal";
-            button.style.opacity = "1";
-            button.style.pointerEvents = "auto";
-        });
+        .catch(function() {});
 }
 
 document.addEventListener("DOMContentLoaded", function() {

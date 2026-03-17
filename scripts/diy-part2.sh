@@ -3,24 +3,26 @@ set -e
 
 echo ">>> CB-Shield-Q30 DIY Part 2 start"
 
-# Copy custom packages
-if [ -d "$GITHUB_WORKSPACE/luci-theme-cbshield" ]; then
-    cp -r "$GITHUB_WORKSPACE/luci-theme-cbshield" package/luci-theme-cbshield
-fi
+sync_dir() {
+    local src="$1"
+    local dst="$2"
 
-if [ -d "$GITHUB_WORKSPACE/packages/cb-riskcontrol" ]; then
-    cp -r "$GITHUB_WORKSPACE/packages/cb-riskcontrol" package/cb-riskcontrol
-fi
+    [ -d "$src" ] || return 0
+    rm -rf "$dst"
+    mkdir -p "$(dirname "$dst")"
+    cp -a "$src" "$dst"
+}
+
+# Copy custom packages
+sync_dir "$GITHUB_WORKSPACE/luci-theme-cbshield" package/custom/luci-theme-cbshield
+sync_dir "$GITHUB_WORKSPACE/packages/cb-riskcontrol" package/custom/cb-riskcontrol
 
 if [ -d "$GITHUB_WORKSPACE/files" ]; then
     mkdir -p files
     cp -a "$GITHUB_WORKSPACE/files/." files/
 fi
 
-# Keep custom packages under package/custom
 mkdir -p package/custom
-mv package/cb-riskcontrol package/custom/ 2>/dev/null || true
-mv package/luci-theme-cbshield package/custom/ 2>/dev/null || true
 
 # Base defaults
 sed -i "s/hostname='OpenWrt'/hostname='CB-Shield-Q30'/g" package/base-files/files/bin/config_generate

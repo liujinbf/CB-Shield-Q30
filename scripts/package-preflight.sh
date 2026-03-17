@@ -16,5 +16,7 @@ targets=(
 
 for target in "${targets[@]}"; do
   echo "[preflight] $target"
-  make "$target" -j"$(nproc)" V=s
+  # 干净树上并行预编译自定义包会打乱 OpenWrt 的依赖构建顺序。
+  # 这里改为串行执行，优先保证首次构建稳定。
+  make "$target" -j1 V=s
 done

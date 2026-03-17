@@ -15,10 +15,13 @@ required_files=(
   "luci-theme-cbshield/luasrc/controller/cbshield/index.lua"
   "luci-theme-cbshield/luasrc/view/cbshield/dashboard.htm"
   "luci-theme-cbshield/luasrc/view/cbshield/network_status.htm"
+  "files/www/cb-portal/portal_config.json"
 )
 for f in "${required_files[@]}"; do
   test -f "$f"
 done
+test ! -e "portal_config.json"
+test ! -e "files/etc/config/cb-riskcontrol"
 
 echo "[smoke] check shell syntax"
 while IFS= read -r f; do
@@ -37,6 +40,17 @@ fi
 echo "[smoke] check javascript syntax"
 if command -v node >/dev/null 2>&1; then
   node --check luci-theme-cbshield/htdocs/luci-static/cbshield/js/dashboard.js
+fi
+
+echo "[smoke] check portal config json"
+if command -v python3 >/dev/null 2>&1; then
+  python3 -m json.tool files/www/cb-portal/portal_config.json >/dev/null
+elif command -v node >/dev/null 2>&1; then
+  node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' \
+    files/www/cb-portal/portal_config.json
+else
+  echo "[smoke] missing python3 or node for json validation"
+  exit 1
 fi
 
 echo "[smoke] check required API routes"
@@ -64,5 +78,13 @@ if grep -q "cb-policy-engine" files/etc/uci-defaults/90_v3_optimizations; then
   echo "[smoke] unexpected cb-policy-engine reference"
   exit 1
 fi
+if grep -R -n "enforce_shop_dns_hijack" packages/cb-riskcontrol files luci-theme-cbshield >/dev/null 2>&1; then
+  echo "[smoke] unexpected shop dns hijack reference"
+  exit 1
+fi
+
+echo "[smoke] check config naming"
+grep -q "check_proxy" packages/cb-riskcontrol/files/cb-health.conf
+grep -q "check_proxy" packages/cb-riskcontrol/files/cb-healthcheck.sh
 
 echo "[smoke] done"
