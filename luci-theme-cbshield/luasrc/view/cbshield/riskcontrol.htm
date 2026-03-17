@@ -5,8 +5,8 @@
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
-        <h1>IP 风控管理</h1>
-        <p class="cb-subtitle">实时检测 WAN IP 风险并联动防护动作</p>
+        <h1>IP 风控中心</h1>
+        <p class="cb-subtitle">实时检测出口线路风险，支持手动触发检测与云端落地页联动</p>
     </div>
 
     <div class="cb-section">
@@ -29,24 +29,21 @@
                 <span id="rc-action">--</span>
             </div>
             <div class="cb-form-row">
-                <button class="cb-btn cb-btn-primary" onclick="manualCheck()">立即检测</button>
+                <button id="btn-runcheck" class="cb-btn cb-btn-primary" onclick="manualCheck()">立即检测</button>
                 <button class="cb-btn cb-btn-secondary" onclick="refreshStatus()">刷新状态</button>
-                <a href="javascript:void(0)" onclick="window.open('http://' + window.location.hostname + ':8080/')" class="cb-btn cb-btn-secondary" style="margin-left:10px;background-color:#f0f4f8;color:var(--cb-primary);text-decoration:none;display:inline-block;padding:8px 15px;">本地落地页</a>
-                <a id="cloud-portal-btn" href="#" target="_blank" class="cb-btn cb-btn-secondary" style="margin-left:10px;background-color:#f0f4f8;color:var(--cb-primary);text-decoration:none;display:inline-block;padding:8px 15px;opacity:0.5;pointer-events:none;">获取云端落地页...</a>
+                <a class="cb-btn cb-btn-secondary" href="javascript:void(0)" onclick="window.open('http://' + window.location.hostname + ':8080/')">本地落地页</a>
+                <a id="cloud-portal-btn" class="cb-btn cb-btn-secondary" href="#" target="_blank" style="opacity:0.55;pointer-events:none;">获取云端落地页...</a>
             </div>
         </div>
     </div>
 
     <div class="cb-section">
-        <h2>当前检测结果</h2>
-        <div class="cb-risk-panel cb-risk-panel-full" id="rc-result-panel">
-            <div class="cb-risk-header">
-                <div class="cb-risk-indicator-large" id="rc-risk-circle">
-                    <div class="cb-risk-score-large" id="rc-risk-score">--</div>
-                    <div class="cb-risk-level" id="rc-risk-level">未检测</div>
-                </div>
+        <h2>最新检测结果</h2>
+        <div class="cb-risk-panel cb-risk-panel-full">
+            <div class="cb-risk-indicator-large" id="rc-risk-circle">
+                <div class="cb-risk-score-large" id="rc-risk-score">--</div>
+                <div class="cb-risk-level" id="rc-risk-level">未检测</div>
             </div>
-
             <div class="cb-risk-details-full">
                 <table class="cb-info-table cb-info-table-full">
                     <thead>
@@ -72,43 +69,31 @@
 </div>
 
 <script>
-function refreshStatus() {
-    fetch('/admin/cbshield/api/riskstatus')
-        .then(function(r) { return r.json(); })
-        .then(function(data) { updateRiskDisplay(data); })
-        .catch(function(e) { console.error('failed to fetch risk status:', e); });
+function setTextById(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = (value !== undefined && value !== null && value !== '') ? value : '--';
 }
 
-function manualCheck() {
-    var btn = document.querySelector('.cb-btn-primary');
-    btn.textContent = '检测中...';
-    btn.disabled = true;
-
-    fetch('/admin/cbshield/api/runcheck', { method: 'POST' })
-        .then(function() {
-            setTimeout(function() {
-                refreshStatus();
-                btn.textContent = '立即检测';
-                btn.disabled = false;
-            }, 3000);
-        })
-        .catch(function() {
-            btn.textContent = '立即检测';
-            btn.disabled = false;
-        });
+function getRiskLevelText(level) {
+    var map = {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical'
+    };
+    return map[level] || 'Unknown';
 }
 
 function updateRiskDisplay(data) {
     if (!data) return;
 
-    var scoreEl = document.getElementById('rc-risk-score');
-    var levelEl = document.getElementById('rc-risk-level');
-    var circleEl = document.getElementById('rc-risk-circle');
+    var score = (data.risk_score !== undefined && data.risk_score !== null) ? data.risk_score : '--';
+    setTextById('rc-risk-score', score);
+    setTextById('rc-risk-level', getRiskLevelText(data.risk_level));
 
-    if (data.risk_score !== undefined) {
-        scoreEl.textContent = data.risk_score;
-        levelEl.textContent = getRiskLevelText(data.risk_level);
-        circleEl.className = 'cb-risk-indicator-large risk-' + (data.risk_level || 'low');
+    var circleEl = document.getElementById('rc-risk-circle');
+    if (circleEl && data.risk_level) {
+        circleEl.className = 'cb-risk-indicator-large risk-' + data.risk_level;
     }
 
     setTextById('rc-timestamp', data.timestamp);
@@ -118,56 +103,72 @@ function updateRiskDisplay(data) {
     setTextById('rc-isp', data.isp);
     setTextById('rc-org', data.org);
     setTextById('rc-asn', data.asn);
-    setTextById('rc-proxy', data.is_proxy ? '是' : '否');
-    setTextById('rc-hosting', data.is_hosting ? '是' : '否');
-    setTextById('rc-factors', data.risk_factors || '无');
-    setTextById('rc-action-taken', data.action_taken || '无');
+    setTextById('rc-proxy', data.is_proxy ? 'Yes' : 'No');
+    setTextById('rc-hosting', data.is_hosting ? 'Yes' : 'No');
+    setTextById('rc-factors', data.risk_factors || 'None');
+    setTextById('rc-action-taken', data.action_taken || 'None');
     setTextById('rc-interval', data.check_interval);
     setTextById('rc-threshold', data.risk_threshold);
     setTextById('rc-action', data.action);
 
     var serviceEl = document.getElementById('rc-service-status');
-    if (data.service_running) {
-        serviceEl.textContent = '运行中';
-        serviceEl.className = 'cb-badge cb-badge-success';
-    } else {
-        serviceEl.textContent = '未运行';
-        serviceEl.className = 'cb-badge cb-badge-danger';
+    if (serviceEl) {
+        if (data.service_running) {
+            serviceEl.textContent = 'Running';
+            serviceEl.className = 'cb-badge cb-badge-success';
+        } else {
+            serviceEl.textContent = 'Stopped';
+            serviceEl.className = 'cb-badge cb-badge-danger';
+        }
     }
 }
 
-function getRiskLevelText(level) {
-    var map = {
-        low: '低',
-        medium: '中',
-        high: '高',
-        critical: '严重'
-    };
-    return map[level] || '未知';
+function refreshStatus() {
+    fetch('/admin/cbshield/api/riskstatus')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { updateRiskDisplay(data); })
+        .catch(function(e) { console.error('failed to fetch risk status:', e); });
 }
 
-function setTextById(id, text) {
-    var el = document.getElementById(id);
-    if (el) el.textContent = text || '--';
+function manualCheck() {
+    var btn = document.getElementById('btn-runcheck');
+    if (!btn) return;
+
+    btn.textContent = 'Checking...';
+    btn.disabled = true;
+
+    fetch('/admin/cbshield/api/runcheck', { method: 'POST' })
+        .then(function() {
+            setTimeout(function() {
+                refreshStatus();
+                btn.textContent = 'Run Check';
+                btn.disabled = false;
+            }, 3000);
+        })
+        .catch(function() {
+            btn.textContent = 'Run Check';
+            btn.disabled = false;
+        });
 }
 
 function fetchCloudConfig() {
-    var configUrl = 'https://raw.githubusercontent.com/liujinbf/CB-Shield-Q30/main/portal_config.json?t=' + new Date().getTime();
-    fetch(configUrl)
+    var url = 'https://raw.githubusercontent.com/liujinbf/CB-Shield-Q30/main/portal_config.json?t=' + Date.now();
+    var btn = document.getElementById('cloud-portal-btn');
+    if (!btn) return;
+
+    fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            var btn = document.getElementById('cloud-portal-btn');
             if (data && data.portal_url) {
                 btn.href = data.portal_url;
-                btn.textContent = '云端落地页';
+                btn.textContent = 'Cloud Portal';
                 btn.style.opacity = '1';
                 btn.style.pointerEvents = 'auto';
             }
         })
         .catch(function() {
-            var btn = document.getElementById('cloud-portal-btn');
             btn.href = 'https://liujinbf.github.io/CB-Shield-Q30/';
-            btn.textContent = '云端落地页';
+            btn.textContent = 'Cloud Portal';
             btn.style.opacity = '1';
             btn.style.pointerEvents = 'auto';
         });
@@ -177,6 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshStatus();
     fetchCloudConfig();
 });
+
 setInterval(refreshStatus, 30000);
 </script>
 

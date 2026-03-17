@@ -11,48 +11,44 @@
 <div class="cb-dashboard">
     <div class="cb-page-header">
         <h1>系统仪表盘</h1>
-        <p class="cb-subtitle">CB-Shield-Q30 / KJWS</p>
+        <p class="cb-subtitle">CB-Shield-Q30 运行概览与关键安全状态</p>
+        <div class="cb-hero-actions">
+            <% if has_passwall then %>
+            <a class="cb-btn cb-btn-primary" href="<%=luci.dispatcher.build_url('admin', 'services', 'passwall')%>">海外线路配置</a>
+            <% end %>
+            <a class="cb-btn cb-btn-secondary" href="<%=luci.dispatcher.build_url('admin', 'cbshield', 'riskcontrol')%>">风控中心</a>
+            <a class="cb-btn cb-btn-secondary" href="<%=luci.dispatcher.build_url('admin', 'cbshield', 'network_status')%>">多 WiFi 管理</a>
+        </div>
     </div>
 
-    <% if has_passwall then %>
     <div class="cb-section">
-        <a class="cb-btn cb-btn-primary" href="<%=luci.dispatcher.build_url('admin', 'services', 'passwall')%>">进入海外线路配置（Passwall）</a>
-    </div>
-    <% end %>
-
-    <div class="cb-cards-row">
-        <div class="cb-card" id="card-cpu">
-            <div class="cb-card-icon">CPU</div>
-            <div class="cb-card-content">
+        <h2>设备负载</h2>
+        <div class="cb-cards-row">
+            <div class="cb-card" id="card-cpu">
+                <div class="cb-card-icon">CPU</div>
                 <h3>CPU 使用率</h3>
                 <div class="cb-progress-ring">
                     <span class="cb-value" id="cpu-value">--</span><span class="cb-unit">%</span>
                 </div>
             </div>
-        </div>
 
-        <div class="cb-card" id="card-memory">
-            <div class="cb-card-icon">MEM</div>
-            <div class="cb-card-content">
+            <div class="cb-card" id="card-memory">
+                <div class="cb-card-icon">MEM</div>
                 <h3>内存使用率</h3>
                 <div class="cb-progress-ring">
                     <span class="cb-value" id="mem-value">--</span><span class="cb-unit">%</span>
                 </div>
                 <p class="cb-detail" id="mem-detail">-- / -- MB</p>
             </div>
-        </div>
 
-        <div class="cb-card" id="card-uptime">
-            <div class="cb-card-icon">UP</div>
-            <div class="cb-card-content">
+            <div class="cb-card" id="card-uptime">
+                <div class="cb-card-icon">UP</div>
                 <h3>运行时长</h3>
                 <p class="cb-value-text" id="uptime-value">--</p>
             </div>
-        </div>
 
-        <div class="cb-card" id="card-connections">
-            <div class="cb-card-icon">NET</div>
-            <div class="cb-card-content">
+            <div class="cb-card" id="card-connections">
+                <div class="cb-card-icon">NET</div>
                 <h3>连接追踪</h3>
                 <p class="cb-value-text" id="conn-value">--</p>
                 <p class="cb-detail" id="conn-detail">最大 --</p>
@@ -69,10 +65,10 @@
             </div>
             <div class="cb-risk-details">
                 <table class="cb-info-table">
-                    <tr><td>IP</td><td id="risk-ip">--</td></tr>
-                    <tr><td>位置</td><td id="risk-location">--</td></tr>
-                    <tr><td>ISP</td><td id="risk-isp">--</td></tr>
-                    <tr><td>代理</td><td id="risk-proxy">--</td></tr>
+                    <tr><td>出口 IP</td><td id="risk-ip">--</td></tr>
+                    <tr><td>地理位置</td><td id="risk-location">--</td></tr>
+                    <tr><td>运营商</td><td id="risk-isp">--</td></tr>
+                    <tr><td>代理特征</td><td id="risk-proxy">--</td></tr>
                     <tr><td>检测时间</td><td id="risk-time">--</td></tr>
                     <tr><td>执行动作</td><td id="risk-action">--</td></tr>
                 </table>
@@ -110,15 +106,15 @@
         <h2>系统负载</h2>
         <div class="cb-cards-row">
             <div class="cb-card">
-                <h3>1 min</h3>
+                <h3>1 MIN</h3>
                 <p class="cb-value-text" id="load-1">--</p>
             </div>
             <div class="cb-card">
-                <h3>5 min</h3>
+                <h3>5 MIN</h3>
                 <p class="cb-value-text" id="load-5">--</p>
             </div>
             <div class="cb-card">
-                <h3>15 min</h3>
+                <h3>15 MIN</h3>
                 <p class="cb-value-text" id="load-15">--</p>
             </div>
         </div>
