@@ -1,5 +1,5 @@
 /**
- * CB-Shield Dashboard data polling and rendering
+ * CB-Shield 仪表盘轮询逻辑
  */
 (function() {
     "use strict";
@@ -45,27 +45,34 @@
             if (!data) return;
 
             var indicator = document.getElementById("risk-indicator");
+            var levelMap = {
+                low: "低风险",
+                medium: "中风险",
+                high: "高风险",
+                critical: "严重风险"
+            };
+
             if (data.risk_score !== undefined) {
                 setElementText("risk-score", data.risk_score);
-                var levelMap = {
-                    low: "低风险",
-                    medium: "中风险",
-                    high: "高风险",
-                    critical: "严重风险"
-                };
                 setElementText("risk-label", levelMap[data.risk_level] || "未知");
-                if (indicator) indicator.style.background = getRiskGradient(data.risk_level);
+                if (indicator) {
+                    indicator.style.background = getRiskGradient(data.risk_level);
+                }
+            } else {
+                setElementText("risk-score", "--");
+                setElementText("risk-label", data.status || "无数据");
             }
 
-            setElementText("risk-ip", data.ip);
-            setElementText("risk-location", (data.country || "") + " " + (data.city || ""));
-            setElementText("risk-isp", data.isp);
-            setElementText("risk-proxy", data.is_proxy ? "检测到代理特征" : "未检测到代理");
-            setElementText("risk-time", data.timestamp);
-            setElementText("risk-action", data.action_taken || "无");
+            setElementText("risk-service", buildProxyStatus(data));
+            setElementText("risk-ip", data.ip || "--");
+            setElementText("risk-location", joinText([data.country, data.city]));
+            setElementText("risk-isp", data.isp || "--");
+            setElementText("risk-proxy", data.is_proxy ? "检测到代理特征" : "未检测到代理特征");
+            setElementText("risk-time", data.timestamp || "--");
+            setElementText("risk-action", data.action_taken || data.action || "--");
 
-            if (!data.service_running && data.status === "service_not_running") {
-                setElementText("risk-label", "服务未启动");
+            if (!data.service_running) {
+                setElementText("risk-label", "风控服务未运行");
             }
         });
     }
@@ -74,34 +81,70 @@
         ajaxGet(API_BASE + "/network", function(data) {
             if (!data) return;
 
-            var allIfaces = [];
-            if (Array.isArray(data.interfaces)) allIfaces = allIfaces.concat(data.interfaces);
-            if (Array.isArray(data.shops)) allIfaces = allIfaces.concat(data.shops);
+            var ifaceMap = {};
+            (data.interfaces || []).forEach(function(iface) {
+                ifaceMap[iface.name] = iface;
+            });
 
-            var ifaceMap = {
-                wan: { ip: "wan-ip", rx: "wan-rx", tx: "wan-tx" },
-                lan: { ip: "office-ip", rx: "office-rx", tx: "office-tx" },
-                shop1: { ip: "guest-ip", rx: "guest-rx", tx: "guest-tx" },
-                shop2: { ip: "ecom-ip", rx: "ecom-rx", tx: "ecom-tx" }
-            };
+            var wifiMap = {};
+            (data.wifi || []).forEach(function(item) {
+                wifiMap[item.id] = item;
+            });
 
-            for (var i = 0; i < allIfaces.length; i++) {
-                var iface = allIfaces[i];
-                var els = ifaceMap[iface.name];
-                if (!els) continue;
-                setElementText(els.ip, iface.ip || "--");
-                setElementText(els.rx, iface.rx_human || "--");
-                setElementText(els.tx, iface.tx_human || "--");
-            }
+            updateInterfaceCard("wan", ifaceMap.wan);
+            updateInterfaceCard("lan", ifaceMap.lan);
+            updateWifiCard("wifi24", wifiMap.office_24g);
+            updateWifiCard("wifi5", wifiMap.office_5g);
+
+            setElementText("clients-value", data.total_clients || 0);
+            setElementText("proxy-value", readableServiceName(data.proxy && data.proxy.service));
+            setElementText("proxy-detail", data.proxy && data.proxy.running ? "运行中" : "未运行");
         });
     }
 
     function fetchConnections() {
         ajaxGet(API_BASE + "/connections", function(data) {
             if (!data) return;
+
             setElementText("conn-value", data.active_connections);
             setElementText("conn-detail", "最大 " + data.max_connections);
+            colorizeValue("card-connections", data.usage_percent || 0, [50, 75]);
         });
+    }
+
+    function updateInterfaceCard(prefix, iface) {
+        if (!iface) return;
+
+        setElementText(prefix + "-status", iface.up ? "在线" : "离线");
+        setElementText(prefix + "-ip", iface.ip || "--");
+        setElementText(prefix + "-rx", iface.rx_human || "--");
+        setElementText(prefix + "-tx", iface.tx_human || "--");
+    }
+
+    function updateWifiCard(prefix, wifi) {
+        if (!wifi) return;
+
+        setElementText(prefix + "-ssid", wifi.ssid || "--");
+        setElementText(prefix + "-status", wifi.enabled ? "启用" : "禁用");
+        setElementText(prefix + "-network", wifi.network || "--");
+    }
+
+    function buildProxyStatus(data) {
+        var service = readableServiceName(data.proxy_service);
+        var status = data.proxy_running ? "运行中" : "未运行";
+        if (service === "--") return status;
+        return service + " / " + status;
+    }
+
+    function readableServiceName(name) {
+        if (!name || name === "none") return "--";
+        if (name === "openclash") return "OpenClash";
+        if (name === "passwall") return "Passwall";
+        return name;
+    }
+
+    function joinText(parts) {
+        return parts.filter(Boolean).join(" ") || "--";
     }
 
     function ajaxGet(url, callback) {
@@ -112,8 +155,8 @@
             if (xhr.readyState === 4 && xhr.status === 200) {
                 try {
                     callback(JSON.parse(xhr.responseText));
-                } catch (e) {
-                    console.error("JSON parse failed:", e);
+                } catch (error) {
+                    console.error("JSON parse failed:", error);
                 }
             }
         };
@@ -124,9 +167,9 @@
     }
 
     function setElementText(id, text) {
-        var el = document.getElementById(id);
-        if (el) {
-            el.textContent = text !== undefined && text !== null ? text : "--";
+        var element = document.getElementById(id);
+        if (element) {
+            element.textContent = text !== undefined && text !== null ? text : "--";
         }
     }
 

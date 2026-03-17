@@ -1,5 +1,5 @@
 #!/bin/sh
-# CB-Shield first boot defaults
+# CB-Shield first boot defaults (single-network edition)
 
 uci -q batch <<'EOF'
 set luci.main.lang='zh_cn'
@@ -24,36 +24,7 @@ set dhcp.@dnsmasq[0].cachesize='1500'
 commit dhcp
 EOF
 
-# shop networks
-for i in 1 2 3 4 5; do
-    uci -q batch <<EOF
-set network.shop$i=interface
-set network.shop$i.proto='static'
-set network.shop$i.ipaddr='192.168.10$i.1'
-set network.shop$i.netmask='255.255.255.0'
-set network.shop$i.disabled='1'
-
-set dhcp.shop$i=dhcp
-set dhcp.shop$i.interface='shop$i'
-set dhcp.shop$i.start='10'
-set dhcp.shop$i.limit='50'
-set dhcp.shop$i.leasetime='12h'
-set dhcp.shop$i.ignore='1'
-commit network
-commit dhcp
-EOF
-done
-
-# shop http redirect to local portal
-cat <<'EOF' >> /etc/firewall.user
-# CB-Shield Portal Redirect
-for i in 1 2 3 4 5; do
-    iptables -t nat -C PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080 2>/dev/null || \
-    iptables -t nat -A PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080
-done
-EOF
-
-# generate wireless config and enable office wifi
+# Generate wireless config and keep a single LAN-backed dual-band network.
 wifi config >/dev/null 2>&1 || wifi detect > /etc/config/wireless
 sed -i "s/option country 'US'/option country 'CN'/g" /etc/config/wireless
 
@@ -96,26 +67,12 @@ set wireless.office_5g.network='lan'
 set wireless.office_5g.encryption='psk2'
 set wireless.office_5g.key='CBShield@Office2024'
 EOF
-
-    for i in 1 2 3 4 5; do
-        uci -q batch <<EOF
-set wireless.shop${i}_5g=wifi-iface
-set wireless.shop${i}_5g.device='radio1'
-set wireless.shop${i}_5g.mode='ap'
-set wireless.shop${i}_5g.ssid='CB-Shop-0$i'
-set wireless.shop${i}_5g.network='shop$i'
-set wireless.shop${i}_5g.encryption='psk2'
-set wireless.shop${i}_5g.key='Shop$i@Password'
-set wireless.shop${i}_5g.isolate='1'
-set wireless.shop${i}_5g.disabled='1'
-EOF
-    done
 fi
 
 uci commit wireless
 wifi reload >/dev/null 2>&1 || true
 
-# mark wizard required if root password missing
+# Mark wizard required if root password is missing.
 mkdir -p /etc/cbshield
 ROOT_HASH="$(grep '^root:' /etc/shadow | cut -d: -f2)"
 if [ -z "$ROOT_HASH" ] || [ "$ROOT_HASH" = "*" ] || [ "$ROOT_HASH" = "!" ]; then
@@ -127,31 +84,12 @@ else
 fi
 uci commit cb-wizard
 
-# helper service: randomize shop BSSID each boot
-cat <<'EOF' > /etc/init.d/mac_randomizer
-#!/bin/sh /etc/rc.common
-START=15
-
-start() {
-    for i in 1 2 3 4 5; do
-        if uci -q get wireless.shop${i}_5g >/dev/null; then
-            NEW_MAC="02:$(hexdump -n 5 -e '5/1 "%02x:"' /dev/urandom | sed 's/.$//')"
-            uci set wireless.shop${i}_5g.macaddr="$NEW_MAC"
-        fi
-    done
-    uci commit wireless
-}
-EOF
-
-chmod +x /etc/init.d/mac_randomizer
-/etc/init.d/mac_randomizer enable
-
-# enable cb ops services
-for svc in cb-riskcontrol cb-portal cb-healthcheck cb-ha-monitor cb-dns-guard cb-policy-engine; do
+# Enable CB ops services.
+for svc in cb-riskcontrol cb-portal cb-healthcheck cb-ha-monitor cb-dns-guard; do
     /etc/init.d/$svc enable 2>/dev/null
     /etc/init.d/$svc start 2>/dev/null
 done
 
-/usr/bin/cb-eventlog write system "first boot defaults applied"
+/usr/bin/cb-eventlog write system "single-network defaults applied"
 
 exit 0

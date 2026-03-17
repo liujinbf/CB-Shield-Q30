@@ -1,7 +1,16 @@
 <%+header%>
 <%
     local fs = require "nixio.fs"
-    local has_passwall = fs.access("/usr/lib/lua/luci/controller/passwall.lua")
+    local proxy_url = nil
+    local proxy_label = nil
+
+    if fs.access("/usr/lib/lua/luci/controller/openclash.lua") then
+        proxy_url = luci.dispatcher.build_url("admin", "services", "openclash")
+        proxy_label = "OpenClash 配置"
+    elseif fs.access("/usr/lib/lua/luci/controller/passwall.lua") then
+        proxy_url = luci.dispatcher.build_url("admin", "services", "passwall")
+        proxy_label = "Passwall 配置"
+    end
 %>
 
 <link rel="stylesheet" href="/luci-static/cbshield/css/style.css" type="text/css" />
@@ -11,13 +20,13 @@
 <div class="cb-dashboard">
     <div class="cb-page-header">
         <h1>系统仪表盘</h1>
-        <p class="cb-subtitle">CB-Shield-Q30 运行概览与安全状态</p>
+        <p class="cb-subtitle">单网络双频状态总览，聚焦出口代理、风控与运维健康。</p>
         <div class="cb-hero-actions">
-            <% if has_passwall then %>
-            <a class="cb-btn cb-btn-primary" href="<%=luci.dispatcher.build_url('admin', 'services', 'passwall')%>">海外线路配置</a>
+            <% if proxy_url then %>
+            <a class="cb-btn cb-btn-primary" href="<%=proxy_url%>"><%=proxy_label%></a>
             <% end %>
-            <a class="cb-btn cb-btn-secondary" href="<%=luci.dispatcher.build_url('admin', 'cbshield', 'riskcontrol')%>">IP 风控中心</a>
-            <a class="cb-btn cb-btn-secondary" href="<%=luci.dispatcher.build_url('admin', 'cbshield', 'network_status')%>">多 WiFi 编排</a>
+            <a class="cb-btn cb-btn-secondary" href="<%=luci.dispatcher.build_url('admin', 'cbshield', 'riskcontrol')%>">IP 风控</a>
+            <a class="cb-btn cb-btn-secondary" href="<%=luci.dispatcher.build_url('admin', 'cbshield', 'network_status')%>">网络状态</a>
             <a class="cb-btn cb-btn-secondary" href="<%=luci.dispatcher.build_url('admin', 'cbshield', 'ops_center')%>">运维中心</a>
         </div>
     </div>
@@ -47,7 +56,7 @@
             </div>
             <div class="cb-card" id="card-connections">
                 <div class="cb-card-icon">NET</div>
-                <h3>连接追踪</h3>
+                <h3>连接跟踪</h3>
                 <p class="cb-value-text" id="conn-value">--</p>
                 <p class="cb-detail" id="conn-detail">最大 --</p>
             </div>
@@ -55,7 +64,7 @@
     </div>
 
     <div class="cb-section">
-        <h2>IP 风控状态</h2>
+        <h2>出口风险状态</h2>
         <div class="cb-risk-panel" id="risk-panel">
             <div class="cb-risk-indicator" id="risk-indicator">
                 <div class="cb-risk-score" id="risk-score">--</div>
@@ -63,6 +72,7 @@
             </div>
             <div class="cb-risk-details">
                 <table class="cb-info-table">
+                    <tr><td>代理服务</td><td id="risk-service">--</td></tr>
                     <tr><td>出口 IP</td><td id="risk-ip">--</td></tr>
                     <tr><td>地理位置</td><td id="risk-location">--</td></tr>
                     <tr><td>运营商</td><td id="risk-isp">--</td></tr>
@@ -75,27 +85,41 @@
     </div>
 
     <div class="cb-section">
-        <h2>网络概览</h2>
+        <h2>网络总览</h2>
         <div class="cb-cards-row">
-            <div class="cb-card cb-card-wide" id="card-wan">
+            <div class="cb-card cb-card-wide">
                 <h3>WAN</h3>
+                <p class="cb-detail">状态: <span id="wan-status">--</span></p>
                 <p class="cb-detail">IP: <span id="wan-ip">--</span></p>
                 <p class="cb-detail">RX <span id="wan-rx">--</span> / TX <span id="wan-tx">--</span></p>
             </div>
-            <div class="cb-card" id="card-office">
+            <div class="cb-card">
                 <h3>LAN</h3>
-                <p class="cb-detail">IP: <span id="office-ip">--</span></p>
-                <p class="cb-detail">RX <span id="office-rx">--</span> / TX <span id="office-tx">--</span></p>
+                <p class="cb-detail">状态: <span id="lan-status">--</span></p>
+                <p class="cb-detail">IP: <span id="lan-ip">--</span></p>
+                <p class="cb-detail">RX <span id="lan-rx">--</span> / TX <span id="lan-tx">--</span></p>
             </div>
-            <div class="cb-card" id="card-guest">
-                <h3>SHOP1</h3>
-                <p class="cb-detail">IP: <span id="guest-ip">--</span></p>
-                <p class="cb-detail">RX <span id="guest-rx">--</span> / TX <span id="guest-tx">--</span></p>
+            <div class="cb-card">
+                <h3>办公 WiFi 2.4G</h3>
+                <p class="cb-detail">SSID: <span id="wifi24-ssid">--</span></p>
+                <p class="cb-detail">状态: <span id="wifi24-status">--</span></p>
+                <p class="cb-detail">网络: <span id="wifi24-network">--</span></p>
             </div>
-            <div class="cb-card" id="card-ecom">
-                <h3>SHOP2</h3>
-                <p class="cb-detail">IP: <span id="ecom-ip">--</span></p>
-                <p class="cb-detail">RX <span id="ecom-rx">--</span> / TX <span id="ecom-tx">--</span></p>
+            <div class="cb-card">
+                <h3>办公 WiFi 5G</h3>
+                <p class="cb-detail">SSID: <span id="wifi5-ssid">--</span></p>
+                <p class="cb-detail">状态: <span id="wifi5-status">--</span></p>
+                <p class="cb-detail">网络: <span id="wifi5-network">--</span></p>
+            </div>
+            <div class="cb-card">
+                <h3>在线客户端</h3>
+                <p class="cb-value-text" id="clients-value">--</p>
+                <p class="cb-detail">来自 LAN/WiFi 的当前在线设备估计</p>
+            </div>
+            <div class="cb-card">
+                <h3>代理服务</h3>
+                <p class="cb-value-text" id="proxy-value">--</p>
+                <p class="cb-detail" id="proxy-detail">--</p>
             </div>
         </div>
     </div>

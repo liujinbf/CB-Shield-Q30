@@ -5,7 +5,7 @@
 <div class="cb-dashboard">
     <div class="cb-page-header">
         <h1>运维中心</h1>
-        <p class="cb-subtitle">P0/P1 状态总览：启动自检、线路高可用、DNS 防泄漏、升级安全检查</p>
+        <p class="cb-subtitle">查看健康检查、高可用监控、DNS 防泄漏和升级前检查结果。</p>
     </div>
 
     <div class="cb-section">
@@ -40,19 +40,32 @@
 <script>
 function healthBadge(ok) {
     return ok
-        ? "<span class=\"cb-badge cb-badge-success\">OK</span>"
-        : "<span class=\"cb-badge cb-badge-danger\">BAD</span>";
+        ? "<span class=\"cb-badge cb-badge-success\">正常</span>"
+        : "<span class=\"cb-badge cb-badge-danger\">异常</span>";
+}
+
+function readableServiceName(name) {
+    if (!name || name === "none") return "未安装";
+    if (name === "openclash") return "OpenClash";
+    if (name === "passwall") return "Passwall";
+    return name;
 }
 
 function renderHealth(health, ha, dns) {
     var box = document.getElementById("health-cards");
     if (!box) return;
+
+    var proxy = health.proxy || {};
+    var risk = health.riskcontrol || {};
+    var portal = health.portal || {};
+    var wifi = health.wifi || {};
     var html = "";
 
     html += "<div class=\"cb-card\"><h3>整体健康</h3><p class=\"cb-value-text\">" + (health.overall || "--") + "</p></div>";
-    html += "<div class=\"cb-card\"><h3>Passwall</h3><p>" + healthBadge(health.passwall && health.passwall.running) + "</p><p class=\"cb-detail\">" + ((health.passwall && health.passwall.action) || "--") + "</p></div>";
-    html += "<div class=\"cb-card\"><h3>风险守护</h3><p>" + healthBadge(health.riskcontrol && health.riskcontrol.running) + "</p><p class=\"cb-detail\">" + ((health.riskcontrol && health.riskcontrol.action) || "--") + "</p></div>";
-    html += "<div class=\"cb-card\"><h3>Portal</h3><p>" + healthBadge(health.portal && health.portal.running) + "</p><p class=\"cb-detail\">" + ((health.portal && health.portal.action) || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>代理服务</h3><p>" + healthBadge(proxy.running) + "</p><p class=\"cb-detail\">" + readableServiceName(proxy.service) + " / " + (proxy.action || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>风控守护</h3><p>" + healthBadge(risk.running) + "</p><p class=\"cb-detail\">" + (risk.action || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>Portal</h3><p>" + healthBadge(portal.running) + "</p><p class=\"cb-detail\">" + (portal.action || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>无线健康</h3><p>" + healthBadge(wifi.healthy) + "</p><p class=\"cb-detail\">" + (wifi.action || "--") + "</p></div>";
     html += "<div class=\"cb-card\"><h3>HA 状态</h3><p class=\"cb-value-text\">" + (ha.health || "--") + "</p><p class=\"cb-detail\">" + (ha.note || "--") + "</p></div>";
     html += "<div class=\"cb-card\"><h3>DNS 防泄漏</h3><p class=\"cb-value-text\">" + (dns.health || "--") + "</p><p class=\"cb-detail\">" + (dns.note || "--") + "</p></div>";
 
@@ -60,15 +73,26 @@ function renderHealth(health, ha, dns) {
 }
 
 function refreshOps(runNow) {
-    var q = runNow ? "?run=1" : "";
+    var request = function(url) {
+        if (!runNow) {
+            return fetch(url).then(function(response) { return response.json(); });
+        }
+
+        return fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "run=1"
+        }).then(function(response) { return response.json(); });
+    };
+
     Promise.all([
-        fetch("/cgi-bin/luci/admin/cbshield/api/health" + q).then(function(r) { return r.json(); }),
-        fetch("/cgi-bin/luci/admin/cbshield/api/ha_status" + q).then(function(r) { return r.json(); }),
-        fetch("/cgi-bin/luci/admin/cbshield/api/dns_status" + q).then(function(r) { return r.json(); })
-    ]).then(function(resp) {
-        renderHealth(resp[0] || {}, resp[1] || {}, resp[2] || {});
-    }).catch(function(e) {
-        console.error("ops refresh failed", e);
+        request("/cgi-bin/luci/admin/cbshield/api/health"),
+        request("/cgi-bin/luci/admin/cbshield/api/ha_status"),
+        request("/cgi-bin/luci/admin/cbshield/api/dns_status")
+    ]).then(function(data) {
+        renderHealth(data[0] || {}, data[1] || {}, data[2] || {});
+    }).catch(function(error) {
+        console.error("ops refresh failed", error);
     });
 }
 
@@ -83,12 +107,12 @@ function runUpgradeCheck() {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params
-    }).then(function(r) { return r.json(); })
+    }).then(function(response) { return response.json(); })
       .then(function(data) {
           document.getElementById("upgrade-result").textContent = JSON.stringify(data, null, 2);
       })
-      .catch(function(e) {
-          document.getElementById("upgrade-result").textContent = JSON.stringify({ error: String(e) }, null, 2);
+      .catch(function(error) {
+          document.getElementById("upgrade-result").textContent = JSON.stringify({ error: String(error) }, null, 2);
       });
 }
 

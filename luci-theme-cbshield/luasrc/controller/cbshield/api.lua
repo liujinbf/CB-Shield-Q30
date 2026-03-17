@@ -1,41 +1,34 @@
 module("luci.controller.cbshield.api", package.seeall)
 
+local http = require("luci.http")
 local json = require("luci.jsonc")
 local sys = require("luci.sys")
-local http = require("luci.http")
 
 function index()
     entry({"admin", "cbshield", "api", "sysinfo"}, call("action_sysinfo")).leaf = true
     entry({"admin", "cbshield", "api", "riskstatus"}, call("action_riskstatus")).leaf = true
     entry({"admin", "cbshield", "api", "runcheck"}, call("action_runcheck")).leaf = true
     entry({"admin", "cbshield", "api", "network"}, call("action_network")).leaf = true
-    entry({"admin", "cbshield", "api", "toggle_shop"}, call("action_toggle_shop")).leaf = true
     entry({"admin", "cbshield", "api", "connections"}, call("action_connections")).leaf = true
-
     entry({"admin", "cbshield", "api", "health"}, call("action_health")).leaf = true
     entry({"admin", "cbshield", "api", "ha_status"}, call("action_ha_status")).leaf = true
     entry({"admin", "cbshield", "api", "dns_status"}, call("action_dns_status")).leaf = true
     entry({"admin", "cbshield", "api", "events"}, call("action_events")).leaf = true
-
     entry({"admin", "cbshield", "api", "wizard_status"}, call("action_wizard_status")).leaf = true
     entry({"admin", "cbshield", "api", "wizard_apply"}, call("action_wizard_apply")).leaf = true
-
-    entry({"admin", "cbshield", "api", "policy_status"}, call("action_policy_status")).leaf = true
-    entry({"admin", "cbshield", "api", "apply_template"}, call("action_apply_template")).leaf = true
-
     entry({"admin", "cbshield", "api", "upgrade_check"}, call("action_upgrade_check")).leaf = true
 end
 
-local function trim(s)
-    if not s then
+local function trim(value)
+    if not value then
         return ""
     end
-    return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+    return (value:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function shq(v)
-    v = tostring(v or "")
-    return "'" .. v:gsub("'", "'\\''") .. "'"
+local function shq(value)
+    value = tostring(value or "")
+    return "'" .. value:gsub("'", "'\\''") .. "'"
 end
 
 local function write_json(data)
@@ -44,13 +37,49 @@ local function write_json(data)
 end
 
 local function parse_json_file(path, default_data)
-    local f = io.open(path, "r")
-    if not f then
+    local handle = io.open(path, "r")
+    if not handle then
         return default_data
     end
-    local content = f:read("*a")
-    f:close()
+
+    local content = handle:read("*a")
+    handle:close()
     return json.parse(content) or default_data
+end
+
+local function request_method()
+    return (http.getenv("REQUEST_METHOD") or "GET"):upper()
+end
+
+local function require_post()
+    if request_method() == "POST" then
+        return true
+    end
+
+    http.status(405, "Method Not Allowed")
+    write_json({ status = "method_not_allowed" })
+    return false
+end
+
+local function service_exists(name)
+    return sys.call("test -x /etc/init.d/" .. name) == 0
+end
+
+local function service_running(name)
+    if not service_exists(name) then
+        return false
+    end
+    return sys.call("/etc/init.d/" .. name .. " status >/dev/null 2>&1") == 0
+end
+
+local function find_proxy_service()
+    if service_exists("openclash") then
+        return "openclash"
+    end
+    if service_exists("passwall") then
+        return "passwall"
+    end
+    return ""
 end
 
 local function read_cpu_stat()
@@ -85,20 +114,21 @@ local function get_iface_info(iface)
     local status = sys.exec("ubus call network.interface." .. iface .. " status 2>/dev/null")
 
     if status and status ~= "" then
-        local s = json.parse(status) or {}
-        info.up = s.up or false
-        info.disabled = s.disabled or false
+        local parsed = json.parse(status) or {}
+        info.up = parsed.up or false
+        info.disabled = parsed.disabled or false
 
-        if s["ipv4-address"] and s["ipv4-address"][1] then
-            info.ip = s["ipv4-address"][1].address or ""
+        if parsed["ipv4-address"] and parsed["ipv4-address"][1] then
+            info.ip = parsed["ipv4-address"][1].address or ""
         else
             info.ip = trim(sys.exec("uci -q get network." .. iface .. ".ipaddr"))
         end
 
-        if s.device then
-            local dev = s.device
-            local rx = tonumber(trim(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/rx_bytes 2>/dev/null"))) or 0
-            local tx = tonumber(trim(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/tx_bytes 2>/dev/null"))) or 0
+        local device = parsed.device or parsed.l3_device
+        if device then
+            local rx = tonumber(trim(sys.exec("cat /sys/class/net/" .. device .. "/statistics/rx_bytes 2>/dev/null"))) or 0
+            local tx = tonumber(trim(sys.exec("cat /sys/class/net/" .. device .. "/statistics/tx_bytes 2>/dev/null"))) or 0
+            info.device = device
             info.rx_human = format_bytes(rx)
             info.tx_human = format_bytes(tx)
         else
@@ -114,6 +144,50 @@ local function get_iface_info(iface)
     end
 
     return info
+end
+
+local function get_wifi_info(section, title, band)
+    local ssid = trim(sys.exec("uci -q get wireless." .. section .. ".ssid"))
+    local network = trim(sys.exec("uci -q get wireless." .. section .. ".network"))
+    local encryption = trim(sys.exec("uci -q get wireless." .. section .. ".encryption"))
+    local disabled = trim(sys.exec("uci -q get wireless." .. section .. ".disabled"))
+
+    if ssid == "" then
+        ssid = "未配置"
+    end
+    if network == "" then
+        network = "lan"
+    end
+    if encryption == "" then
+        encryption = "unknown"
+    end
+
+    return {
+        id = section,
+        title = title,
+        band = band,
+        ssid = ssid,
+        network = network,
+        encryption = encryption,
+        enabled = disabled ~= "1"
+    }
+end
+
+local function get_proxy_state()
+    local service = find_proxy_service()
+    if service == "" then
+        return {
+            present = false,
+            service = "none",
+            running = false
+        }
+    end
+
+    return {
+        present = true,
+        service = service,
+        running = service_running(service)
+    }
 end
 
 function action_sysinfo()
@@ -168,73 +242,47 @@ end
 
 function action_riskstatus()
     local data = parse_json_file("/tmp/cb-riskcontrol.json", { status = "no_data" })
-    local pid = trim(sys.exec("pgrep -f 'cb-riskcontrol daemon'"))
-    data.service_running = pid ~= ""
+    local proxy = get_proxy_state()
+
+    data.service_running = service_running("cb-riskcontrol")
     data.check_interval = tonumber(trim(sys.exec("uci -q get cb-riskcontrol.main.check_interval"))) or 300
     data.risk_threshold = tonumber(trim(sys.exec("uci -q get cb-riskcontrol.main.risk_threshold"))) or 70
     data.action = trim(sys.exec("uci -q get cb-riskcontrol.main.action"))
+    data.proxy_service = proxy.service
+    data.proxy_running = proxy.running
+
     if data.action == "" then
         data.action = "warn"
     end
+
     write_json(data)
 end
 
 function action_runcheck()
+    if not require_post() then
+        return
+    end
+
     sys.exec("/usr/bin/cb-riskcontrol check >/dev/null 2>&1 &")
     write_json({ status = "started" })
 end
 
 function action_network()
-    local data = { interfaces = {}, shops = {} }
-
-    for _, iface in ipairs({ "lan", "wan" }) do
-        table.insert(data.interfaces, get_iface_info(iface))
-    end
-
-    for i = 1, 5 do
-        local id = "shop" .. i
-        local info = get_iface_info(id)
-        local wifi_id = id .. "_5g"
-        info.ssid = trim(sys.exec("uci -q get wireless." .. wifi_id .. ".ssid"))
-        if info.ssid == "" then
-            info.ssid = "N/A"
-        end
-        local disabled = trim(sys.exec("uci -q get wireless." .. wifi_id .. ".disabled"))
-        info.wifi_enabled = (disabled == "" or disabled == "0")
-        info.template = trim(sys.exec("uci -q get cb-policy." .. id .. ".template"))
-        if info.template == "" then
-            info.template = "direct"
-        end
-        table.insert(data.shops, info)
-    end
+    local data = {
+        interfaces = {
+            get_iface_info("wan"),
+            get_iface_info("lan")
+        },
+        wifi = {
+            get_wifi_info("office_24g", "办公 WiFi 2.4G", "2.4GHz"),
+            get_wifi_info("office_5g", "办公 WiFi 5G", "5GHz")
+        },
+        proxy = get_proxy_state()
+    }
 
     local arp = trim(sys.exec("cat /proc/net/arp | grep -v 'IP address' | wc -l"))
     data.total_clients = tonumber(arp) or 0
     write_json(data)
-end
-
-function action_toggle_shop()
-    local id = http.formvalue("id")
-    local enable = http.formvalue("enable") == "1"
-
-    if not id or not id:match("^shop[1-5]$") then
-        http.status(400, "Bad Request")
-        write_json({ status = "bad_request" })
-        return
-    end
-
-    local disabled_val = enable and "0" or "1"
-    local wifi_id = id .. "_5g"
-
-    sys.exec("uci set network." .. id .. ".disabled=" .. shq(disabled_val))
-    sys.exec("uci set dhcp." .. id .. ".ignore=" .. shq(disabled_val))
-    sys.exec("uci set wireless." .. wifi_id .. ".disabled=" .. shq(disabled_val))
-    sys.exec("uci commit network; uci commit dhcp; uci commit wireless")
-    sys.exec("/sbin/reload_config >/dev/null 2>&1 &")
-    sys.exec("wifi reload >/dev/null 2>&1 &")
-    sys.exec("/usr/bin/cb-eventlog write network " .. shq("toggle " .. id .. " enable=" .. tostring(enable)))
-
-    write_json({ status = "success", enabled = enable })
 end
 
 function action_connections()
@@ -253,6 +301,9 @@ end
 function action_health()
     local run = http.formvalue("run")
     if run == "1" then
+        if not require_post() then
+            return
+        end
         sys.exec("/usr/bin/cb-healthcheck check >/dev/null 2>&1")
     end
     write_json(parse_json_file("/tmp/cb-health.json", { overall = "no_data" }))
@@ -261,6 +312,9 @@ end
 function action_ha_status()
     local run = http.formvalue("run")
     if run == "1" then
+        if not require_post() then
+            return
+        end
         sys.exec("/usr/bin/cb-ha-monitor check >/dev/null 2>&1")
     end
     write_json(parse_json_file("/tmp/cb-ha.json", { health = "no_data" }))
@@ -269,21 +323,26 @@ end
 function action_dns_status()
     local run = http.formvalue("run")
     if run == "1" then
+        if not require_post() then
+            return
+        end
         sys.exec("/usr/bin/cb-dns-guard check >/dev/null 2>&1")
     end
     write_json(parse_json_file("/tmp/cb-dns-health.json", { health = "no_data" }))
 end
 
 function action_events()
-    local lines = {}
+    local items = {}
     local raw = sys.exec("tail -n 200 /tmp/cb-events.log 2>/dev/null")
+
     for line in raw:gmatch("[^\r\n]+") do
         local obj = json.parse(line)
         if obj then
-            table.insert(lines, obj)
+            table.insert(items, obj)
         end
     end
-    write_json({ events = lines, count = #lines })
+
+    write_json({ events = items, count = #items })
 end
 
 function action_wizard_status()
@@ -293,6 +352,10 @@ function action_wizard_status()
 end
 
 function action_wizard_apply()
+    if not require_post() then
+        return
+    end
+
     local password = http.formvalue("password") or ""
     local timezone = http.formvalue("timezone") or "CST-8"
     local zonename = http.formvalue("zonename") or "Asia/Shanghai"
@@ -312,39 +375,14 @@ function action_wizard_apply()
     write_json(json.parse(out) or { status = "error", message = "wizard_apply_failed" })
 end
 
-function action_policy_status()
-    local run = http.formvalue("run")
-    if run == "1" then
-        sys.exec("/usr/bin/cb-policy-engine run_once >/dev/null 2>&1")
-    end
-    write_json(parse_json_file("/tmp/cb-policy.json", { enabled = false, shops = {} }))
-end
-
-function action_apply_template()
-    local id = http.formvalue("id")
-    local template = http.formvalue("template")
-    if not id or not id:match("^shop[1-5]$") then
-        http.status(400, "Bad Request")
-        write_json({ status = "bad_shop" })
-        return
-    end
-    if template ~= "direct" and template ~= "proxy" and template ~= "blocked" then
-        http.status(400, "Bad Request")
-        write_json({ status = "bad_template" })
-        return
-    end
-
-    local out = trim(sys.exec("/usr/bin/cb-policy-engine apply_template " .. shq(id) .. " " .. shq(template) .. " 2>/dev/null"))
-    if out == "ok" then
-        write_json({ status = "success", id = id, template = template })
-    else
-        write_json({ status = "error", message = out })
-    end
-end
-
 function action_upgrade_check()
+    if not require_post() then
+        return
+    end
+
     local image = http.formvalue("image") or ""
     local sha = http.formvalue("sha256") or ""
+
     if image == "" then
         http.status(400, "Bad Request")
         write_json({ status = "error", message = "image_required" })
@@ -355,6 +393,7 @@ function action_upgrade_check()
     if sha ~= "" then
         cmd = cmd .. " " .. shq(sha)
     end
+
     local out = sys.exec(cmd .. " 2>/dev/null")
     write_json(json.parse(out) or parse_json_file("/tmp/cb-upgrade-check.json", { all_ok = false, note = "check_failed" }))
 end

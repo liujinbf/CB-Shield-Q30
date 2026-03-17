@@ -10,6 +10,8 @@ CHECK_INTERVAL=300
 ACTION="warn"
 RISK_THRESHOLD=70
 API_PROVIDER="ip-api"
+PROBE_URL="https://www.gstatic.com/generate_204"
+PROBE_FAIL_THRESHOLD=3
 
 log_info() {
     logger -t "$LOG_TAG" -p daemon.info "$1"
@@ -23,12 +25,28 @@ log_err() {
     logger -t "$LOG_TAG" -p daemon.err "$1"
 }
 
+service_exists() {
+    [ -x "/etc/init.d/$1" ]
+}
+
+find_proxy_service() {
+    if service_exists openclash; then
+        echo "openclash"
+    elif service_exists passwall; then
+        echo "passwall"
+    else
+        echo ""
+    fi
+}
+
 load_config() {
     ENABLED="$(uci -q get cb-riskcontrol.main.enabled || echo 1)"
     CHECK_INTERVAL="$(uci -q get cb-riskcontrol.main.check_interval || echo 300)"
     ACTION="$(uci -q get cb-riskcontrol.main.action || echo warn)"
     RISK_THRESHOLD="$(uci -q get cb-riskcontrol.main.risk_threshold || echo 70)"
     API_PROVIDER="$(uci -q get cb-riskcontrol.main.api_provider || echo ip-api)"
+    PROBE_URL="$(uci -q get cb-riskcontrol.main.probe_url || echo https://www.gstatic.com/generate_204)"
+    PROBE_FAIL_THRESHOLD="$(uci -q get cb-riskcontrol.main.probe_fail_threshold || echo 3)"
 }
 
 get_wan_ip() {
@@ -67,13 +85,11 @@ check_ip_risk_ipapi() {
     local org
     local asn
     local city
-    local timezone
-    local current_zone
     local risk_score=0
     local risk_factors=""
 
     result="$(curl -s --connect-timeout 10 --max-time 15 \
-        "http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,city,isp,org,as,proxy,hosting,timezone,query" \
+        "http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,city,isp,org,as,proxy,hosting,query" \
         2>/dev/null)"
 
     if [ -z "$result" ]; then
@@ -88,17 +104,6 @@ check_ip_risk_ipapi() {
     org="$(echo "$result" | jsonfilter -e '@.org' 2>/dev/null)"
     asn="$(echo "$result" | jsonfilter -e '@.as' 2>/dev/null)"
     city="$(echo "$result" | jsonfilter -e '@.city' 2>/dev/null)"
-    timezone="$(echo "$result" | jsonfilter -e '@.timezone' 2>/dev/null)"
-
-    if [ -n "$timezone" ] && [ "$timezone" != "null" ]; then
-        current_zone="$(uci -q get system.@system[0].zonename)"
-        if [ "$timezone" != "$current_zone" ]; then
-            log_info "timezone changed: $current_zone -> $timezone"
-            uci set system.@system[0].zonename="$timezone"
-            uci commit system
-            /etc/init.d/system reload
-        fi
-    fi
 
     if [ "$is_proxy" = "true" ]; then
         risk_score=$((risk_score + 50))
@@ -137,6 +142,7 @@ EOF
 execute_action() {
     local risk_score="$1"
     local action_taken="none"
+    local proxy_service
 
     if [ "$risk_score" -ge "$RISK_THRESHOLD" ]; then
         case "$ACTION" in
@@ -152,12 +158,13 @@ execute_action() {
                 action_taken="disconnected_reconnected"
                 ;;
             switch_proxy)
+                proxy_service="$(find_proxy_service)"
                 log_warn "high risk ip detected: score=${risk_score}, action=switch_proxy"
-                if [ -f "/etc/init.d/passwall" ]; then
-                    /etc/init.d/passwall restart 2>/dev/null
-                    action_taken="proxy_switched"
+                if [ -n "$proxy_service" ]; then
+                    /etc/init.d/"$proxy_service" restart 2>/dev/null
+                    action_taken="proxy_restarted"
                 else
-                    log_err "passwall not found"
+                    log_err "proxy service not found"
                     action_taken="switch_failed"
                 fi
                 ;;
@@ -210,18 +217,28 @@ run_check() {
     echo "$check_result" | sed "s/\"action_taken\": \"none\"/\"action_taken\": \"${action}\"/" > "$STATUS_FILE"
 }
 
+get_lan_device() {
+    local lan_json
+    local dev
+
+    lan_json="$(ubus call network.interface.lan status 2>/dev/null)"
+    dev="$(echo "$lan_json" | jsonfilter -e '@.device' 2>/dev/null)"
+    [ -z "$dev" ] && dev="$(echo "$lan_json" | jsonfilter -e '@.l3_device' 2>/dev/null)"
+    [ -z "$dev" ] && dev="br-lan"
+    echo "$dev"
+}
+
 ensure_killswitch_chain() {
     nft list chain inet fw4 cb_shield_killswitch >/dev/null 2>&1 || \
     nft add chain inet fw4 cb_shield_killswitch "{ type filter hook forward priority -1; }" >/dev/null 2>&1
 }
 
 enable_killswitch() {
-    local i
+    local lan_dev
+    lan_dev="$(get_lan_device)"
     ensure_killswitch_chain
     nft flush chain inet fw4 cb_shield_killswitch >/dev/null 2>&1
-    for i in 1 2 3 4 5; do
-        nft add rule inet fw4 cb_shield_killswitch iifname "shop${i}" reject >/dev/null 2>&1
-    done
+    nft add rule inet fw4 cb_shield_killswitch iifname "$lan_dev" reject >/dev/null 2>&1
 }
 
 disable_killswitch() {
@@ -230,16 +247,22 @@ disable_killswitch() {
 }
 
 daemon_loop() {
+    local fail_count=0
+
     load_config
     log_info "risk daemon started, interval=${CHECK_INTERVAL}s"
     ensure_killswitch_chain
     disable_killswitch
 
     while true; do
-        if ! curl -I -s --connect-timeout 3 -m 3 https://www.google.com >/dev/null 2>&1; then
-            enable_killswitch
-            log_warn "killswitch enabled because upstream is unreachable"
+        if ! curl -I -s --connect-timeout 3 -m 3 "$PROBE_URL" >/dev/null 2>&1; then
+            fail_count=$((fail_count + 1))
+            if [ "$fail_count" -ge "$PROBE_FAIL_THRESHOLD" ]; then
+                enable_killswitch
+                log_warn "killswitch enabled because upstream probe failed ${fail_count} times"
+            fi
         else
+            fail_count=0
             disable_killswitch
         fi
 

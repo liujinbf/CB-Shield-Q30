@@ -1,5 +1,5 @@
 # CB-Shield-Q30 DHCP 配置
-# 多店铺独立 IP 网段，默认关闭店铺 DHCP，按策略启用
+# 单网络双频方案：2.4G / 5G 都挂在同一个 LAN
 
 config dnsmasq
     option domainneeded '1'
@@ -24,43 +24,3 @@ config dhcp 'lan'
     option leasetime '12h'
     option dhcpv4 'server'
     list dhcp_option '6,192.168.10.1'
-
-config dhcp 'shop1'
-    option interface 'shop1'
-    option start '10'
-    option limit '50'
-    option leasetime '12h'
-    option dhcpv4 'server'
-    option ignore '1'
-
-config dhcp 'shop2'
-    option interface 'shop2'
-    option start '10'
-    option limit '50'
-    option leasetime '12h'
-    option dhcpv4 'server'
-    option ignore '1'
-
-config dhcp 'shop3'
-    option interface 'shop3'
-    option start '10'
-    option limit '50'
-    option leasetime '12h'
-    option dhcpv4 'server'
-    option ignore '1'
-
-config dhcp 'shop4'
-    option interface 'shop4'
-    option start '10'
-    option limit '50'
-    option leasetime '12h'
-    option dhcpv4 'server'
-    option ignore '1'
-
-config dhcp 'shop5'
-    option interface 'shop5'
-    option start '10'
-    option limit '50'
-    option leasetime '12h'
-    option dhcpv4 'server'
-    option ignore '1'

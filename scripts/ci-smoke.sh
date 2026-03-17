@@ -9,11 +9,12 @@ required_files=(
   "packages/cb-riskcontrol/files/cb-healthcheck.sh"
   "packages/cb-riskcontrol/files/cb-ha-monitor.sh"
   "packages/cb-riskcontrol/files/cb-dns-guard.sh"
-  "packages/cb-riskcontrol/files/cb-policy-engine.sh"
   "packages/cb-riskcontrol/files/cb-safe-upgrade.sh"
   "packages/cb-riskcontrol/files/cb-wizard.sh"
   "luci-theme-cbshield/luasrc/controller/cbshield/api.lua"
   "luci-theme-cbshield/luasrc/controller/cbshield/index.lua"
+  "luci-theme-cbshield/luasrc/view/cbshield/dashboard.htm"
+  "luci-theme-cbshield/luasrc/view/cbshield/network_status.htm"
 )
 for f in "${required_files[@]}"; do
   test -f "$f"
@@ -33,22 +34,35 @@ if command -v luac >/dev/null 2>&1; then
   luac -p luci-theme-cbshield/luasrc/controller/cbshield/api.lua
 fi
 
+echo "[smoke] check javascript syntax"
+if command -v node >/dev/null 2>&1; then
+  node --check luci-theme-cbshield/htdocs/luci-static/cbshield/js/dashboard.js
+fi
+
 echo "[smoke] check required API routes"
 api_file="luci-theme-cbshield/luasrc/controller/cbshield/api.lua"
+grep -q '"api", "sysinfo"' "$api_file"
+grep -q '"api", "riskstatus"' "$api_file"
+grep -q '"api", "runcheck"' "$api_file"
+grep -q '"api", "network"' "$api_file"
 grep -q '"api", "health"' "$api_file"
 grep -q '"api", "ha_status"' "$api_file"
 grep -q '"api", "dns_status"' "$api_file"
 grep -q '"api", "events"' "$api_file"
 grep -q '"api", "wizard_apply"' "$api_file"
-grep -q '"api", "apply_template"' "$api_file"
 grep -q '"api", "upgrade_check"' "$api_file"
 
 echo "[smoke] check defaults and first-boot wizard"
 grep -q "wizard_required" files/etc/uci-defaults/90_v3_optimizations
 grep -q "CB-Shield-Office" files/etc/uci-defaults/90_v3_optimizations
+grep -q "office_24g" files/etc/uci-defaults/90_v3_optimizations
+grep -q "office_5g" files/etc/uci-defaults/90_v3_optimizations
 grep -q "cb-healthcheck" files/etc/uci-defaults/90_v3_optimizations
 grep -q "cb-ha-monitor" files/etc/uci-defaults/90_v3_optimizations
 grep -q "cb-dns-guard" files/etc/uci-defaults/90_v3_optimizations
-grep -q "cb-policy-engine" files/etc/uci-defaults/90_v3_optimizations
+if grep -q "cb-policy-engine" files/etc/uci-defaults/90_v3_optimizations; then
+  echo "[smoke] unexpected cb-policy-engine reference"
+  exit 1
+fi
 
 echo "[smoke] done"

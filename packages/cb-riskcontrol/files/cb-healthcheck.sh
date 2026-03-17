@@ -21,6 +21,16 @@ service_running() {
     /etc/init.d/"$name" status >/dev/null 2>&1
 }
 
+find_proxy_service() {
+    if service_exists openclash; then
+        echo "openclash"
+    elif service_exists passwall; then
+        echo "passwall"
+    else
+        echo ""
+    fi
+}
+
 ensure_service() {
     local name="$1"
     local check_enabled="$2"
@@ -53,26 +63,49 @@ ensure_service() {
     echo "$present|$running|$action"
 }
 
+ensure_proxy() {
+    local proxy_service
+    proxy_service="$(find_proxy_service)"
+    if [ -z "$proxy_service" ]; then
+        echo "false|false|not_installed|none"
+        return
+    fi
+
+    printf '%s|%s\n' "$(ensure_service "$proxy_service" "$CHECK_PASSWALL")" "$proxy_service"
+}
+
 ensure_wifi() {
     local ok="true"
     local action="none"
-    local radio0_disabled radio1_disabled
+    local radio0_exists radio1_exists radio0_disabled radio1_disabled
 
     if [ "$CHECK_WIFI" != "1" ]; then
         echo "true|skipped"
         return
     fi
 
-    radio0_disabled="$(uci -q get wireless.radio0.disabled || echo 1)"
-    radio1_disabled="$(uci -q get wireless.radio1.disabled || echo 1)"
+    radio0_exists="0"
+    radio1_exists="0"
+    uci -q get wireless.radio0 >/dev/null 2>&1 && radio0_exists="1"
+    uci -q get wireless.radio1 >/dev/null 2>&1 && radio1_exists="1"
 
-    if [ "$radio0_disabled" = "1" ] || [ "$radio1_disabled" = "1" ]; then
+    radio0_disabled="0"
+    radio1_disabled="0"
+    [ "$radio0_exists" = "1" ] && radio0_disabled="$(uci -q get wireless.radio0.disabled || echo 1)"
+    [ "$radio1_exists" = "1" ] && radio1_disabled="$(uci -q get wireless.radio1.disabled || echo 1)"
+
+    if { [ "$radio0_exists" = "1" ] && [ "$radio0_disabled" = "1" ]; } || \
+       { [ "$radio1_exists" = "1" ] && [ "$radio1_disabled" = "1" ]; }; then
         ok="false"
         if [ "$AUTO_REPAIR" = "1" ]; then
-            uci -q set wireless.radio0.disabled='0'
-            uci -q set wireless.radio1.disabled='0'
-            uci -q set wireless.default_radio0.disabled='0'
-            uci -q set wireless.default_radio1.disabled='0'
+            [ "$radio0_exists" = "1" ] && {
+                uci -q set wireless.radio0.disabled='0'
+                uci -q set wireless.default_radio0.disabled='0'
+            }
+            [ "$radio1_exists" = "1" ] && {
+                uci -q set wireless.radio1.disabled='0'
+                uci -q set wireless.default_radio1.disabled='0'
+            }
             uci commit wireless
             wifi reload >/dev/null 2>&1
             ok="true"
@@ -86,17 +119,23 @@ ensure_wifi() {
 
 build_status_json() {
     local ts="$1"
-    local passwall="$2"
+    local proxy="$2"
     local risk="$3"
     local portal="$4"
     local wifi="$5"
     local overall="$6"
+    local proxy_present proxy_running proxy_action proxy_name
+
+    proxy_present="$(echo "$proxy" | cut -d'|' -f1)"
+    proxy_running="$(echo "$proxy" | cut -d'|' -f2)"
+    proxy_action="$(echo "$proxy" | cut -d'|' -f3)"
+    proxy_name="$(echo "$proxy" | cut -d'|' -f4)"
 
     cat > "$STATUS_FILE" <<EOF
 {
   "timestamp": "$ts",
   "overall": "$overall",
-  "passwall": {"present": ${passwall%%|*}, "running": $(echo "$passwall" | cut -d'|' -f2), "action": "$(echo "$passwall" | cut -d'|' -f3)"},
+  "proxy": {"present": ${proxy_present}, "running": ${proxy_running}, "action": "${proxy_action}", "service": "${proxy_name}"},
   "riskcontrol": {"present": ${risk%%|*}, "running": $(echo "$risk" | cut -d'|' -f2), "action": "$(echo "$risk" | cut -d'|' -f3)"},
   "portal": {"present": ${portal%%|*}, "running": $(echo "$portal" | cut -d'|' -f2), "action": "$(echo "$portal" | cut -d'|' -f3)"},
   "wifi": {"healthy": ${wifi%%|*}, "action": "$(echo "$wifi" | cut -d'|' -f2)"}
@@ -106,30 +145,30 @@ EOF
 
 run_once() {
     local ts overall
-    local passwall_state risk_state portal_state wifi_state
+    local proxy_state risk_state portal_state wifi_state
 
     read_cfg
     if [ "$ENABLED" != "1" ]; then
         cat > "$STATUS_FILE" <<EOF
 {"timestamp":"$(date '+%Y-%m-%d %H:%M:%S')","overall":"disabled"}
 EOF
-        exit 0
+        return 0
     fi
 
     ts="$(date '+%Y-%m-%d %H:%M:%S')"
 
-    passwall_state="$(ensure_service passwall "$CHECK_PASSWALL")"
+    proxy_state="$(ensure_proxy)"
     risk_state="$(ensure_service cb-riskcontrol "$CHECK_RISKCONTROL")"
     portal_state="$(ensure_service cb-portal "$CHECK_PORTAL")"
     wifi_state="$(ensure_wifi)"
 
     overall="ok"
-    echo "$passwall_state" | grep -q "|false|" && overall="degraded"
+    echo "$proxy_state" | grep -q "|false|" && overall="degraded"
     echo "$risk_state" | grep -q "|false|" && overall="degraded"
     echo "$portal_state" | grep -q "|false|" && overall="degraded"
     echo "$wifi_state" | grep -q "^false|" && overall="degraded"
 
-    build_status_json "$ts" "$passwall_state" "$risk_state" "$portal_state" "$wifi_state" "$overall"
+    build_status_json "$ts" "$proxy_state" "$risk_state" "$portal_state" "$wifi_state" "$overall"
 }
 
 daemon_loop() {

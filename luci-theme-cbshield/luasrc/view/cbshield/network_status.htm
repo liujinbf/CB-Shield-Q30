@@ -4,136 +4,114 @@
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
-        <h1>网络与多 WiFi 编排</h1>
-        <p class="cb-subtitle">每个 Shop 可独立开关、模板切换、状态监控与出口策略编排</p>
+        <h1>网络状态</h1>
+        <p class="cb-subtitle">查看单网络双频状态、出口代理运行情况与在线客户端数量。</p>
     </div>
 
     <div class="cb-section">
-        <h2>基础接口状态</h2>
+        <h2>基础接口</h2>
         <div class="cb-cards-row" id="iface-cards">
             <div class="cb-card cb-card-loading"><p>加载中...</p></div>
         </div>
     </div>
 
     <div class="cb-section">
-        <h2>Shop 策略模板</h2>
-        <div class="cb-shop-grid" id="shop-cards">
+        <h2>无线网络</h2>
+        <div class="cb-cards-row" id="wifi-cards">
             <div class="cb-card cb-card-loading"><p>加载中...</p></div>
         </div>
     </div>
 
     <div class="cb-section">
-        <div class="cb-mini-stats">
-            <p>在线客户端总数: <strong id="total-clients">--</strong></p>
+        <h2>代理与客户端</h2>
+        <div class="cb-cards-row" id="extra-cards">
+            <div class="cb-card cb-card-loading"><p>加载中...</p></div>
         </div>
     </div>
 </div>
 
 <script>
-var isBusy = false;
-
-function postForm(url, bodyObj) {
-    var params = new URLSearchParams();
-    Object.keys(bodyObj).forEach(function(k) { params.append(k, bodyObj[k]); });
-    return fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params
-    }).then(function(r) { return r.json(); });
+function readableServiceName(name) {
+    if (!name || name === "none") return "未安装";
+    if (name === "openclash") return "OpenClash";
+    if (name === "passwall") return "Passwall";
+    return name;
 }
 
 function loadNetworkStatus() {
-    if (isBusy) return;
     fetch("/cgi-bin/luci/admin/cbshield/api/network")
-        .then(function(r) { return r.json(); })
+        .then(function(response) { return response.json(); })
         .then(function(data) {
-            renderInterfaceCards(data.interfaces || []);
-            renderShopCards(data.shops || []);
-            var clientsEl = document.getElementById("total-clients");
-            if (clientsEl) clientsEl.textContent = data.total_clients || 0;
+            renderInterfaces(data.interfaces || []);
+            renderWifi(data.wifi || []);
+            renderExtras(data.proxy || {}, data.total_clients || 0);
         })
-        .catch(function(e) {
-            console.error("failed to load network status:", e);
+        .catch(function(error) {
+            console.error("failed to load network status:", error);
         });
 }
 
-function renderInterfaceCards(interfaces) {
+function renderInterfaces(interfaces) {
     var container = document.getElementById("iface-cards");
     if (!container) return;
 
-    var html = "";
-    var nameMap = { wan: "WAN", lan: "LAN" };
+    if (!interfaces.length) {
+        container.innerHTML = "<div class=\"cb-card\"><p class=\"cb-detail\">暂无接口数据</p></div>";
+        return;
+    }
 
+    var html = "";
     interfaces.forEach(function(iface) {
-        var statusClass = iface.up ? "cb-badge-success" : "cb-badge-danger";
-        var statusText = iface.up ? "UP" : "DOWN";
         html += "<div class=\"cb-card\">";
-        html += "  <h3>" + (nameMap[iface.name] || iface.name) + "</h3>";
-        html += "  <p><span class=\"cb-badge " + statusClass + "\">" + statusText + "</span></p>";
+        html += "  <h3>" + iface.name.toUpperCase() + "</h3>";
+        html += "  <p class=\"cb-detail\">状态: " + (iface.up ? "在线" : "离线") + "</p>";
         html += "  <p class=\"cb-detail\">IP: " + (iface.ip || "--") + "</p>";
-        html += "  <p class=\"cb-detail\">RX " + (iface.rx_human || "--") + " | TX " + (iface.tx_human || "--") + "</p>";
+        html += "  <p class=\"cb-detail\">RX " + (iface.rx_human || "--") + " / TX " + (iface.tx_human || "--") + "</p>";
         html += "</div>";
     });
     container.innerHTML = html;
 }
 
-function renderShopCards(shops) {
-    var container = document.getElementById("shop-cards");
+function renderWifi(items) {
+    var container = document.getElementById("wifi-cards");
     if (!container) return;
 
-    var html = "";
-    shops.forEach(function(shop, idx) {
-        var shopId = "shop" + (idx + 1);
-        var isActive = !shop.disabled;
-        var tpl = shop.template || "direct";
+    if (!items.length) {
+        container.innerHTML = "<div class=\"cb-card\"><p class=\"cb-detail\">暂无无线数据</p></div>";
+        return;
+    }
 
-        html += "<div class=\"cb-shop-card " + (isActive ? "active" : "") + "\">";
-        html += "  <div class=\"cb-shop-header\">";
-        html += "    <h3>Shop " + (idx + 1) + "</h3>";
-        html += "    <label class=\"cb-switch\">";
-        html += "      <input type=\"checkbox\" " + (isActive ? "checked" : "") + " onchange=\"toggleShop('" + shopId + "', this.checked)\">";
-        html += "      <span class=\"cb-slider\"></span>";
-        html += "    </label>";
-        html += "  </div>";
-        html += "  <div class=\"cb-shop-info\">";
-        html += "    <p><strong>状态:</strong> " + (isActive ? "已启用" : "已停用") + "</p>";
-        html += "    <p><strong>模板:</strong> " + tpl + "</p>";
-        html += "    <p><strong>SSID:</strong> " + (shop.ssid || ("CB-Shop-0" + (idx + 1))) + "</p>";
-        html += "    <p><strong>IP:</strong> " + (shop.ip || "--") + "</p>";
-        html += "    <p><strong>流量:</strong> RX " + (shop.rx_human || "0 B") + " | TX " + (shop.tx_human || "0 B") + "</p>";
-        html += "  </div>";
-        html += "  <div style=\"display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;\">";
-        html += "    <button class=\"cb-btn cb-btn-secondary\" onclick=\"applyTemplate('" + shopId + "', 'direct')\">直连</button>";
-        html += "    <button class=\"cb-btn cb-btn-secondary\" onclick=\"applyTemplate('" + shopId + "', 'proxy')\">代理</button>";
-        html += "    <button class=\"cb-btn cb-btn-secondary\" onclick=\"applyTemplate('" + shopId + "', 'blocked')\">禁网</button>";
-        html += "  </div>";
+    var html = "";
+    items.forEach(function(item) {
+        html += "<div class=\"cb-card\">";
+        html += "  <h3>" + (item.title || item.id) + "</h3>";
+        html += "  <p class=\"cb-detail\">频段: " + (item.band || "--") + "</p>";
+        html += "  <p class=\"cb-detail\">SSID: " + (item.ssid || "--") + "</p>";
+        html += "  <p class=\"cb-detail\">状态: " + (item.enabled ? "启用" : "禁用") + "</p>";
+        html += "  <p class=\"cb-detail\">网络: " + (item.network || "--") + "</p>";
+        html += "  <p class=\"cb-detail\">加密: " + (item.encryption || "--") + "</p>";
         html += "</div>";
     });
-
     container.innerHTML = html;
 }
 
-function toggleShop(shopId, enable) {
-    isBusy = true;
-    var inputs = document.querySelectorAll(".cb-switch input");
-    inputs.forEach(function(el) { el.disabled = true; });
+function renderExtras(proxy, clients) {
+    var container = document.getElementById("extra-cards");
+    if (!container) return;
 
-    postForm("/cgi-bin/luci/admin/cbshield/api/toggle_shop", { id: shopId, enable: enable ? "1" : "0" })
-        .finally(function() {
-            setTimeout(function() {
-                isBusy = false;
-                loadNetworkStatus();
-            }, 1200);
-        });
-}
-
-function applyTemplate(shopId, template) {
-    isBusy = true;
-    postForm("/cgi-bin/luci/admin/cbshield/api/apply_template", { id: shopId, template: template })
-        .then(function() { loadNetworkStatus(); })
-        .finally(function() {
-            setTimeout(function() { isBusy = false; }, 500);
-        });
+    var proxyName = readableServiceName(proxy.service);
+    var html = "";
+    html += "<div class=\"cb-card\">";
+    html += "  <h3>代理服务</h3>";
+    html += "  <p class=\"cb-value-text\">" + proxyName + "</p>";
+    html += "  <p class=\"cb-detail\">状态: " + (proxy.running ? "运行中" : "未运行") + "</p>";
+    html += "</div>";
+    html += "<div class=\"cb-card\">";
+    html += "  <h3>在线客户端</h3>";
+    html += "  <p class=\"cb-value-text\">" + clients + "</p>";
+    html += "  <p class=\"cb-detail\">通过 ARP 记录估算当前在线设备</p>";
+    html += "</div>";
+    container.innerHTML = html;
 }
 
 document.addEventListener("DOMContentLoaded", loadNetworkStatus);
