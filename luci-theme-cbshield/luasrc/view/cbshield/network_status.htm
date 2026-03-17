@@ -1,29 +1,24 @@
 <%+header%>
 
 <link rel="stylesheet" href="/luci-static/cbshield/css/style.css" type="text/css" />
-<script src="/luci-static/cbshield/js/theme.js"></script>
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
-        <h1>网络与多 WiFi</h1>
-        <p class="cb-subtitle">按店铺维度查看链路状态，并独立启停 Shop1~Shop5 无线网络</p>
+        <h1>网络与多 WiFi 编排</h1>
+        <p class="cb-subtitle">每个 Shop 可独立开关、模板切换、状态监控与出口策略编排</p>
     </div>
 
     <div class="cb-section">
         <h2>基础接口状态</h2>
         <div class="cb-cards-row" id="iface-cards">
-            <div class="cb-card cb-card-loading">
-                <p>正在加载接口状态...</p>
-            </div>
+            <div class="cb-card cb-card-loading"><p>加载中...</p></div>
         </div>
     </div>
 
     <div class="cb-section">
-        <h2>店铺 WiFi 与网络隔离</h2>
+        <h2>Shop 策略模板</h2>
         <div class="cb-shop-grid" id="shop-cards">
-            <div class="cb-card cb-card-loading">
-                <p>正在加载店铺网络...</p>
-            </div>
+            <div class="cb-card cb-card-loading"><p>加载中...</p></div>
         </div>
     </div>
 
@@ -35,103 +30,113 @@
 </div>
 
 <script>
-var isToggling = false;
+var isBusy = false;
+
+function postForm(url, bodyObj) {
+    var params = new URLSearchParams();
+    Object.keys(bodyObj).forEach(function(k) { params.append(k, bodyObj[k]); });
+    return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params
+    }).then(function(r) { return r.json(); });
+}
 
 function loadNetworkStatus() {
-    if (isToggling) return;
-
-    fetch('/admin/cbshield/api/network')
+    if (isBusy) return;
+    fetch("/admin/cbshield/api/network")
         .then(function(r) { return r.json(); })
         .then(function(data) {
             renderInterfaceCards(data.interfaces || []);
             renderShopCards(data.shops || []);
-            var clientsEl = document.getElementById('total-clients');
+            var clientsEl = document.getElementById("total-clients");
             if (clientsEl) clientsEl.textContent = data.total_clients || 0;
         })
         .catch(function(e) {
-            console.error('failed to load network status:', e);
+            console.error("failed to load network status:", e);
         });
 }
 
 function renderInterfaceCards(interfaces) {
-    var container = document.getElementById('iface-cards');
+    var container = document.getElementById("iface-cards");
     if (!container) return;
 
-    var html = '';
-    var nameMap = { wan: 'WAN', lan: 'LAN' };
+    var html = "";
+    var nameMap = { wan: "WAN", lan: "LAN" };
 
-    for (var i = 0; i < interfaces.length; i++) {
-        var iface = interfaces[i];
-        var statusClass = iface.up ? 'cb-badge-success' : 'cb-badge-danger';
-        var statusText = iface.up ? '在线' : '离线';
-
-        html += '<div class="cb-card">';
-        html += '<h3>' + (nameMap[iface.name] || iface.name) + '</h3>';
-        html += '<p><span class="cb-badge ' + statusClass + '">' + statusText + '</span></p>';
-        html += '<p class="cb-detail">IP: ' + (iface.ip || '--') + '</p>';
-        html += '<p class="cb-detail">RX ' + (iface.rx_human || '--') + ' | TX ' + (iface.tx_human || '--') + '</p>';
-        html += '</div>';
-    }
+    interfaces.forEach(function(iface) {
+        var statusClass = iface.up ? "cb-badge-success" : "cb-badge-danger";
+        var statusText = iface.up ? "UP" : "DOWN";
+        html += "<div class=\"cb-card\">";
+        html += "  <h3>" + (nameMap[iface.name] || iface.name) + "</h3>";
+        html += "  <p><span class=\"cb-badge " + statusClass + "\">" + statusText + "</span></p>";
+        html += "  <p class=\"cb-detail\">IP: " + (iface.ip || "--") + "</p>";
+        html += "  <p class=\"cb-detail\">RX " + (iface.rx_human || "--") + " | TX " + (iface.tx_human || "--") + "</p>";
+        html += "</div>";
+    });
     container.innerHTML = html;
 }
 
 function renderShopCards(shops) {
-    var container = document.getElementById('shop-cards');
+    var container = document.getElementById("shop-cards");
     if (!container) return;
 
-    var html = '';
-    for (var i = 0; i < shops.length; i++) {
-        var shop = shops[i];
+    var html = "";
+    shops.forEach(function(shop, idx) {
+        var shopId = "shop" + (idx + 1);
         var isActive = !shop.disabled;
-        var shopIdx = i + 1;
+        var tpl = shop.template || "direct";
 
-        html += '<div class="cb-shop-card ' + (isActive ? 'active' : '') + '">';
-        html += '  <div class="cb-shop-header">';
-        html += '    <h3>Shop ' + shopIdx + '</h3>';
-        html += '    <label class="cb-switch">';
-        html += '      <input type="checkbox" ' + (isActive ? 'checked' : '') + ' onchange="toggleShop(\'shop' + shopIdx + '\', this.checked)">';
-        html += '      <span class="cb-slider"></span>';
-        html += '    </label>';
-        html += '  </div>';
-        html += '  <div class="cb-shop-info">';
-        html += '    <p><strong>状态:</strong> ' + (isActive ? '<span style="color:#189f73">启用</span>' : '<span style="color:#7e8b9a">禁用</span>') + '</p>';
-        html += '    <p><strong>SSID:</strong> ' + (shop.ssid || ('CB-Shop-0' + shopIdx)) + '</p>';
-        html += '    <p><strong>IP:</strong> ' + (shop.ip || '--') + '</p>';
-        html += '    <p><strong>流量:</strong> RX ' + (shop.rx_human || '0 B') + ' | TX ' + (shop.tx_human || '0 B') + '</p>';
-        html += '  </div>';
-        html += '</div>';
-    }
+        html += "<div class=\"cb-shop-card " + (isActive ? "active" : "") + "\">";
+        html += "  <div class=\"cb-shop-header\">";
+        html += "    <h3>Shop " + (idx + 1) + "</h3>";
+        html += "    <label class=\"cb-switch\">";
+        html += "      <input type=\"checkbox\" " + (isActive ? "checked" : "") + " onchange=\"toggleShop('" + shopId + "', this.checked)\">";
+        html += "      <span class=\"cb-slider\"></span>";
+        html += "    </label>";
+        html += "  </div>";
+        html += "  <div class=\"cb-shop-info\">";
+        html += "    <p><strong>状态:</strong> " + (isActive ? "已启用" : "已停用") + "</p>";
+        html += "    <p><strong>模板:</strong> " + tpl + "</p>";
+        html += "    <p><strong>SSID:</strong> " + (shop.ssid || ("CB-Shop-0" + (idx + 1))) + "</p>";
+        html += "    <p><strong>IP:</strong> " + (shop.ip || "--") + "</p>";
+        html += "    <p><strong>流量:</strong> RX " + (shop.rx_human || "0 B") + " | TX " + (shop.tx_human || "0 B") + "</p>";
+        html += "  </div>";
+        html += "  <div style=\"display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;\">";
+        html += "    <button class=\"cb-btn cb-btn-secondary\" onclick=\"applyTemplate('" + shopId + "', 'direct')\">直连</button>";
+        html += "    <button class=\"cb-btn cb-btn-secondary\" onclick=\"applyTemplate('" + shopId + "', 'proxy')\">代理</button>";
+        html += "    <button class=\"cb-btn cb-btn-secondary\" onclick=\"applyTemplate('" + shopId + "', 'blocked')\">禁网</button>";
+        html += "  </div>";
+        html += "</div>";
+    });
+
     container.innerHTML = html;
 }
 
 function toggleShop(shopId, enable) {
-    isToggling = true;
-    var inputs = document.querySelectorAll('.cb-switch input');
+    isBusy = true;
+    var inputs = document.querySelectorAll(".cb-switch input");
     inputs.forEach(function(el) { el.disabled = true; });
 
-    var params = new URLSearchParams();
-    params.append('id', shopId);
-    params.append('enable', enable ? '1' : '0');
-
-    fetch('/admin/cbshield/api/toggle_shop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params
-    })
-    .then(function(r) { return r.json(); })
-    .then(function() {
-        setTimeout(function() {
-            isToggling = false;
-            loadNetworkStatus();
-        }, 1200);
-    })
-    .catch(function() {
-        isToggling = false;
-        loadNetworkStatus();
-    });
+    postForm("/admin/cbshield/api/toggle_shop", { id: shopId, enable: enable ? "1" : "0" })
+        .finally(function() {
+            setTimeout(function() {
+                isBusy = false;
+                loadNetworkStatus();
+            }, 1200);
+        });
 }
 
-document.addEventListener('DOMContentLoaded', loadNetworkStatus);
+function applyTemplate(shopId, template) {
+    isBusy = true;
+    postForm("/admin/cbshield/api/apply_template", { id: shopId, template: template })
+        .then(function() { loadNetworkStatus(); })
+        .finally(function() {
+            setTimeout(function() { isBusy = false; }, 500);
+        });
+}
+
+document.addEventListener("DOMContentLoaded", loadNetworkStatus);
 setInterval(loadNetworkStatus, 10000);
 </script>
 

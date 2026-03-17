@@ -1,7 +1,5 @@
-# ============================================================
 # CB-Shield-Q30 DHCP 配置
-# 多店铺独立 IP 隔离网段
-# ============================================================
+# 多店铺独立 IP 网段，默认关闭店铺 DHCP，按策略启用
 
 config dnsmasq
     option domainneeded '1'
@@ -19,7 +17,6 @@ config dnsmasq
     option localservice '1'
     option ednspacket_max '1232'
 
-# --- LAN 主网络 DHCP (办公) ---
 config dhcp 'lan'
     option interface 'lan'
     option start '100'
@@ -27,8 +24,6 @@ config dhcp 'lan'
     option leasetime '12h'
     option dhcpv4 'server'
     list dhcp_option '6,192.168.10.1'
-
-# --- 店铺网络 DHCP 池 (默认忽略, 随接口启用生效) ---
 
 config dhcp 'shop1'
     option interface 'shop1'

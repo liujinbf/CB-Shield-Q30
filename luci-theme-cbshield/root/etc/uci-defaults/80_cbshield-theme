@@ -1,5 +1,5 @@
 #!/bin/sh
-# 保持与 Argon 主题兼容，CB-Shield 仅作为功能页面样式层
+# 保持与 Argon 主题兼容，CB-Shield 仅提供业务页面样式
 
 uci -q batch <<'EOF'
 set luci.main.mediaurlbase='/luci-static/argon'

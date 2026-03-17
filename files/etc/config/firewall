@@ -1,8 +1,5 @@
-# ============================================================
 # CB-Shield-Q30 防火墙配置
-# - 多店铺绝对物理隔离 (Shop1 - Shop5)
-# - DDoS/端口扫描防护
-# ============================================================
+# 多店铺隔离 + 管理面保护 + DNS 防泄漏
 
 config defaults
     option syn_flood '1'
@@ -15,7 +12,6 @@ config defaults
     option flow_offloading '1'
     option flow_offloading_hw '1'
 
-# --- Zone: WAN ---
 config zone
     option name 'wan'
     option input 'REJECT'
@@ -25,7 +21,6 @@ config zone
     option mtu_fix '1'
     list network 'wan'
 
-# --- Zone: LAN 主网络 (办公/管理) ---
 config zone
     option name 'lan'
     option input 'ACCEPT'
@@ -33,11 +28,9 @@ config zone
     option forward 'ACCEPT'
     list network 'lan'
 
-# === 跨境店铺独立隔离域 (Shop1 - Shop5) ===
-
 config zone
     option name 'shop1'
-    option input 'REJECT'  
+    option input 'REJECT'
     option output 'ACCEPT'
     option forward 'REJECT'
     list network 'shop1'
@@ -70,65 +63,135 @@ config zone
     option forward 'REJECT'
     list network 'shop5'
 
-# --- Forwarding 规则 (仅允许向 WAN 出口转发) ---
 config forwarding
     option src 'lan'
     option dest 'wan'
+
 config forwarding
     option src 'shop1'
     option dest 'wan'
+
 config forwarding
     option src 'shop2'
     option dest 'wan'
+
 config forwarding
     option src 'shop3'
     option dest 'wan'
+
 config forwarding
     option src 'shop4'
     option dest 'wan'
+
 config forwarding
     option src 'shop5'
     option dest 'wan'
 
-# --- 基础规则 (允许必须的基础服务) ---
-
-# 允许各店铺网络访问 DHCP 端口
 config rule
-    option name 'Allow-Shops-DHCP'
-    list src 'shop1'
-    list src 'shop2'
-    list src 'shop3'
-    list src 'shop4'
-    list src 'shop5'
+    option name 'Allow-shop1-DHCP'
+    option src 'shop1'
     option dest_port '67 68'
     option proto 'udp'
     option target 'ACCEPT'
 
-# 允许各店铺网络访问 DNS
 config rule
-    option name 'Allow-Shops-DNS'
-    list src 'shop1'
-    list src 'shop2'
-    list src 'shop3'
-    list src 'shop4'
-    list src 'shop5'
+    option name 'Allow-shop2-DHCP'
+    option src 'shop2'
+    option dest_port '67 68'
+    option proto 'udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Allow-shop3-DHCP'
+    option src 'shop3'
+    option dest_port '67 68'
+    option proto 'udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Allow-shop4-DHCP'
+    option src 'shop4'
+    option dest_port '67 68'
+    option proto 'udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Allow-shop5-DHCP'
+    option src 'shop5'
+    option dest_port '67 68'
+    option proto 'udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Allow-shop1-DNS'
+    option src 'shop1'
     option dest_port '53'
     option proto 'tcp udp'
     option target 'ACCEPT'
 
-# --- 严格物理隔离: 阻断店铺设备访问管理后台 (LuCI/SSH) ---
 config rule
-    option name 'Deny-Shops-Admin-Access'
-    list src 'shop1'
-    list src 'shop2'
-    list src 'shop3'
-    list src 'shop4'
-    list src 'shop5'
+    option name 'Allow-shop2-DNS'
+    option src 'shop2'
+    option dest_port '53'
+    option proto 'tcp udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Allow-shop3-DNS'
+    option src 'shop3'
+    option dest_port '53'
+    option proto 'tcp udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Allow-shop4-DNS'
+    option src 'shop4'
+    option dest_port '53'
+    option proto 'tcp udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Allow-shop5-DNS'
+    option src 'shop5'
+    option dest_port '53'
+    option proto 'tcp udp'
+    option target 'ACCEPT'
+
+config rule
+    option name 'Deny-shop1-Admin'
+    option src 'shop1'
     option dest_port '22 80 443'
     option proto 'tcp'
     option target 'REJECT'
 
-# 限制 WAN 入站 Ping
+config rule
+    option name 'Deny-shop2-Admin'
+    option src 'shop2'
+    option dest_port '22 80 443'
+    option proto 'tcp'
+    option target 'REJECT'
+
+config rule
+    option name 'Deny-shop3-Admin'
+    option src 'shop3'
+    option dest_port '22 80 443'
+    option proto 'tcp'
+    option target 'REJECT'
+
+config rule
+    option name 'Deny-shop4-Admin'
+    option src 'shop4'
+    option dest_port '22 80 443'
+    option proto 'tcp'
+    option target 'REJECT'
+
+config rule
+    option name 'Deny-shop5-Admin'
+    option src 'shop5'
+    option dest_port '22 80 443'
+    option proto 'tcp'
+    option target 'REJECT'
+
 config rule
     option name 'Limit-WAN-Ping'
     option src 'wan'
@@ -136,31 +199,85 @@ config rule
     option icmp_type 'echo-request'
     option target 'DROP'
 
-# --- DDoS 防护规则钩子 ---
 config include
     option path '/etc/firewall.cb-shield'
     option reload '1'
 
-# --- DNS 防泄漏劫持 (强制所有店铺域名解析走向代理) ---
 config redirect
-    option name 'Hijack-Shops-DNS-UDP'
-    list src 'shop1'
-    list src 'shop2'
-    list src 'shop3'
-    list src 'shop4'
-    list src 'shop5'
+    option name 'Hijack-shop1-DNS-UDP'
+    option src 'shop1'
     option proto 'udp'
     option src_dport '53'
     option dest_port '53'
     option target 'DNAT'
 
 config redirect
-    option name 'Hijack-Shops-DNS-TCP'
-    list src 'shop1'
-    list src 'shop2'
-    list src 'shop3'
-    list src 'shop4'
-    list src 'shop5'
+    option name 'Hijack-shop1-DNS-TCP'
+    option src 'shop1'
+    option proto 'tcp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop2-DNS-UDP'
+    option src 'shop2'
+    option proto 'udp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop2-DNS-TCP'
+    option src 'shop2'
+    option proto 'tcp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop3-DNS-UDP'
+    option src 'shop3'
+    option proto 'udp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop3-DNS-TCP'
+    option src 'shop3'
+    option proto 'tcp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop4-DNS-UDP'
+    option src 'shop4'
+    option proto 'udp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop4-DNS-TCP'
+    option src 'shop4'
+    option proto 'tcp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop5-DNS-UDP'
+    option src 'shop5'
+    option proto 'udp'
+    option src_dport '53'
+    option dest_port '53'
+    option target 'DNAT'
+
+config redirect
+    option name 'Hijack-shop5-DNS-TCP'
+    option src 'shop5'
     option proto 'tcp'
     option src_dport '53'
     option dest_port '53'

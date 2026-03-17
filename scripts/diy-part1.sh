@@ -40,7 +40,7 @@ clone_with_optional_pin \
 git clone --depth 1 https://github.com/jerrykuku/luci-theme-argon.git custom_feeds/argon
 git clone --depth 1 https://github.com/jerrykuku/luci-app-argon-config.git custom_feeds/argon_config
 
-# 替换 feeds.conf.default 中对应源为本地 src-link
+# 用本地 src-link 覆盖远程 feed，降低网络波动影响
 sed -i 's|^src-git.*passwall .*|src-link passwall custom_feeds/passwall|' feeds.conf.default
 sed -i 's|^src-git.*passwall_packages .*|src-link passwall_packages custom_feeds/passwall_packages|' feeds.conf.default
 sed -i 's|^src-git.*kwrt .*|src-link kwrt custom_feeds/kwrt|' feeds.conf.default

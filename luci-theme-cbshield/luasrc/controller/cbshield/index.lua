@@ -9,10 +9,12 @@ function index()
 
     entry({"admin", "cbshield", "dashboard"}, template("cbshield/dashboard"), _("仪表盘"), 10)
     entry({"admin", "cbshield", "riskcontrol"}, template("cbshield/riskcontrol"), _("IP 风控"), 20)
-    entry({"admin", "cbshield", "network_status"}, template("cbshield/network_status"), _("网络状态"), 30)
+    entry({"admin", "cbshield", "network_status"}, template("cbshield/network_status"), _("多 WiFi"), 30)
+    entry({"admin", "cbshield", "ops_center"}, template("cbshield/ops_center"), _("运维中心"), 40)
+    entry({"admin", "cbshield", "wizard"}, template("cbshield/wizard"), _("首次向导"), 50)
+    entry({"admin", "cbshield", "timeline"}, template("cbshield/timeline"), _("事件时间线"), 60)
 
-    -- 只有检测到 Passwall 控制器时才展示“海外线路”快捷入口
     if fs.access("/usr/lib/lua/luci/controller/passwall.lua") then
-        entry({"admin", "cbshield", "overseas_line"}, alias("admin", "services", "passwall"), _("海外线路"), 40)
+        entry({"admin", "cbshield", "overseas_line"}, alias("admin", "services", "passwall"), _("海外线路"), 70)
     end
 end

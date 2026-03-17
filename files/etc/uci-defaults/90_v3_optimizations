@@ -1,5 +1,5 @@
 #!/bin/sh
-# CB-Shield-Q30 首启优化与多 WiFi 初始化
+# CB-Shield first boot defaults
 
 uci -q batch <<'EOF'
 set luci.main.lang='zh_cn'
@@ -24,7 +24,7 @@ set dhcp.@dnsmasq[0].cachesize='1500'
 commit dhcp
 EOF
 
-# 预创建店铺网络（默认关闭）
+# shop networks
 for i in 1 2 3 4 5; do
     uci -q batch <<EOF
 set network.shop$i=interface
@@ -44,7 +44,7 @@ commit dhcp
 EOF
 done
 
-# HTTP 强制跳转到本地落地页（店铺网络）
+# shop http redirect to local portal
 cat <<'EOF' >> /etc/firewall.user
 # CB-Shield Portal Redirect
 for i in 1 2 3 4 5; do
@@ -53,12 +53,7 @@ for i in 1 2 3 4 5; do
 done
 EOF
 
-/etc/init.d/cb-portal enable 2>/dev/null
-/etc/init.d/cb-portal start 2>/dev/null
-/etc/init.d/cb-riskcontrol enable 2>/dev/null
-/etc/init.d/cb-riskcontrol start 2>/dev/null
-
-# 重新生成无线配置并启用办公 WiFi
+# generate wireless config and enable office wifi
 wifi config >/dev/null 2>&1 || wifi detect > /etc/config/wireless
 sed -i "s/option country 'US'/option country 'CN'/g" /etc/config/wireless
 
@@ -120,6 +115,19 @@ fi
 uci commit wireless
 wifi reload >/dev/null 2>&1 || true
 
+# mark wizard required if root password missing
+mkdir -p /etc/cbshield
+ROOT_HASH="$(grep '^root:' /etc/shadow | cut -d: -f2)"
+if [ -z "$ROOT_HASH" ] || [ "$ROOT_HASH" = "*" ] || [ "$ROOT_HASH" = "!" ]; then
+    touch /etc/cbshield/wizard_required
+    uci -q set cb-wizard.main.required='1'
+else
+    rm -f /etc/cbshield/wizard_required
+    uci -q set cb-wizard.main.required='0'
+fi
+uci commit cb-wizard
+
+# helper service: randomize shop BSSID each boot
 cat <<'EOF' > /etc/init.d/mac_randomizer
 #!/bin/sh /etc/rc.common
 START=15
@@ -137,5 +145,13 @@ EOF
 
 chmod +x /etc/init.d/mac_randomizer
 /etc/init.d/mac_randomizer enable
+
+# enable cb ops services
+for svc in cb-riskcontrol cb-portal cb-healthcheck cb-ha-monitor cb-dns-guard cb-policy-engine; do
+    /etc/init.d/$svc enable 2>/dev/null
+    /etc/init.d/$svc start 2>/dev/null
+done
+
+/usr/bin/cb-eventlog write system "first boot defaults applied"
 
 exit 0

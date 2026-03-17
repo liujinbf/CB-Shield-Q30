@@ -11,6 +11,19 @@ function index()
     entry({"admin", "cbshield", "api", "network"}, call("action_network")).leaf = true
     entry({"admin", "cbshield", "api", "toggle_shop"}, call("action_toggle_shop")).leaf = true
     entry({"admin", "cbshield", "api", "connections"}, call("action_connections")).leaf = true
+
+    entry({"admin", "cbshield", "api", "health"}, call("action_health")).leaf = true
+    entry({"admin", "cbshield", "api", "ha_status"}, call("action_ha_status")).leaf = true
+    entry({"admin", "cbshield", "api", "dns_status"}, call("action_dns_status")).leaf = true
+    entry({"admin", "cbshield", "api", "events"}, call("action_events")).leaf = true
+
+    entry({"admin", "cbshield", "api", "wizard_status"}, call("action_wizard_status")).leaf = true
+    entry({"admin", "cbshield", "api", "wizard_apply"}, call("action_wizard_apply")).leaf = true
+
+    entry({"admin", "cbshield", "api", "policy_status"}, call("action_policy_status")).leaf = true
+    entry({"admin", "cbshield", "api", "apply_template"}, call("action_apply_template")).leaf = true
+
+    entry({"admin", "cbshield", "api", "upgrade_check"}, call("action_upgrade_check")).leaf = true
 end
 
 local function trim(s)
@@ -18,6 +31,26 @@ local function trim(s)
         return ""
     end
     return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function shq(v)
+    v = tostring(v or "")
+    return "'" .. v:gsub("'", "'\\''") .. "'"
+end
+
+local function write_json(data)
+    http.prepare_content("application/json")
+    http.write(json.stringify(data))
+end
+
+local function parse_json_file(path, default_data)
+    local f = io.open(path, "r")
+    if not f then
+        return default_data
+    end
+    local content = f:read("*a")
+    f:close()
+    return json.parse(content) or default_data
 end
 
 local function read_cpu_stat()
@@ -130,75 +163,54 @@ function action_sysinfo()
     end
 
     data.hostname = sys.hostname() or "CB-Shield-Q30"
-
-    http.prepare_content("application/json")
-    http.write(json.stringify(data))
+    write_json(data)
 end
 
 function action_riskstatus()
-    local status_file = "/tmp/cb-riskcontrol.json"
-    local data = {}
-
-    local f = io.open(status_file, "r")
-    if f then
-        local content = f:read("*a")
-        f:close()
-        data = json.parse(content) or { status = "no_data" }
-    else
-        data = { status = "service_not_running" }
-    end
-
+    local data = parse_json_file("/tmp/cb-riskcontrol.json", { status = "no_data" })
     local pid = trim(sys.exec("pgrep -f 'cb-riskcontrol daemon'"))
     data.service_running = pid ~= ""
-
     data.check_interval = tonumber(trim(sys.exec("uci -q get cb-riskcontrol.main.check_interval"))) or 300
     data.risk_threshold = tonumber(trim(sys.exec("uci -q get cb-riskcontrol.main.risk_threshold"))) or 70
     data.action = trim(sys.exec("uci -q get cb-riskcontrol.main.action"))
     if data.action == "" then
         data.action = "warn"
     end
-
-    http.prepare_content("application/json")
-    http.write(json.stringify(data))
+    write_json(data)
 end
 
 function action_runcheck()
     sys.exec("/usr/bin/cb-riskcontrol check >/dev/null 2>&1 &")
-    http.prepare_content("application/json")
-    http.write(json.stringify({ status = "started" }))
+    write_json({ status = "started" })
 end
 
 function action_network()
-    local data = {
-        interfaces = {},
-        shops = {}
-    }
+    local data = { interfaces = {}, shops = {} }
 
-    local base_ifaces = { "lan", "wan" }
-    for _, iface in ipairs(base_ifaces) do
+    for _, iface in ipairs({ "lan", "wan" }) do
         table.insert(data.interfaces, get_iface_info(iface))
     end
 
     for i = 1, 5 do
-        local shop_id = "shop" .. i
-        local info = get_iface_info(shop_id)
-
-        local wifi_id = "shop" .. i .. "_5g"
+        local id = "shop" .. i
+        local info = get_iface_info(id)
+        local wifi_id = id .. "_5g"
         info.ssid = trim(sys.exec("uci -q get wireless." .. wifi_id .. ".ssid"))
         if info.ssid == "" then
             info.ssid = "N/A"
         end
         local disabled = trim(sys.exec("uci -q get wireless." .. wifi_id .. ".disabled"))
         info.wifi_enabled = (disabled == "" or disabled == "0")
-
+        info.template = trim(sys.exec("uci -q get cb-policy." .. id .. ".template"))
+        if info.template == "" then
+            info.template = "direct"
+        end
         table.insert(data.shops, info)
     end
 
     local arp = trim(sys.exec("cat /proc/net/arp | grep -v 'IP address' | wc -l"))
     data.total_clients = tonumber(arp) or 0
-
-    http.prepare_content("application/json")
-    http.write(json.stringify(data))
+    write_json(data)
 end
 
 function action_toggle_shop()
@@ -207,35 +219,142 @@ function action_toggle_shop()
 
     if not id or not id:match("^shop[1-5]$") then
         http.status(400, "Bad Request")
-        http.prepare_content("application/json")
-        http.write(json.stringify({ status = "bad_request" }))
+        write_json({ status = "bad_request" })
         return
     end
 
     local disabled_val = enable and "0" or "1"
     local wifi_id = id .. "_5g"
 
-    sys.exec("uci set network." .. id .. ".disabled='" .. disabled_val .. "'")
-    sys.exec("uci set dhcp." .. id .. ".ignore='" .. disabled_val .. "'")
-    sys.exec("uci set wireless." .. wifi_id .. ".disabled='" .. disabled_val .. "'")
+    sys.exec("uci set network." .. id .. ".disabled=" .. shq(disabled_val))
+    sys.exec("uci set dhcp." .. id .. ".ignore=" .. shq(disabled_val))
+    sys.exec("uci set wireless." .. wifi_id .. ".disabled=" .. shq(disabled_val))
     sys.exec("uci commit network; uci commit dhcp; uci commit wireless")
     sys.exec("/sbin/reload_config >/dev/null 2>&1 &")
     sys.exec("wifi reload >/dev/null 2>&1 &")
+    sys.exec("/usr/bin/cb-eventlog write network " .. shq("toggle " .. id .. " enable=" .. tostring(enable)))
 
-    http.prepare_content("application/json")
-    http.write(json.stringify({ status = "success", enabled = enable }))
+    write_json({ status = "success", enabled = enable })
 end
 
 function action_connections()
-    local data = {}
-
     local conntrack = trim(sys.exec("cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null"))
     local conntrack_max = trim(sys.exec("cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null"))
+    local active = tonumber(conntrack) or 0
+    local maxv = tonumber(conntrack_max) or 65536
 
-    data.active_connections = tonumber(conntrack) or 0
-    data.max_connections = tonumber(conntrack_max) or 65536
-    data.usage_percent = data.max_connections > 0 and math.floor((data.active_connections / data.max_connections) * 100) or 0
+    write_json({
+        active_connections = active,
+        max_connections = maxv,
+        usage_percent = maxv > 0 and math.floor((active / maxv) * 100) or 0
+    })
+end
 
-    http.prepare_content("application/json")
-    http.write(json.stringify(data))
+function action_health()
+    local run = http.formvalue("run")
+    if run == "1" then
+        sys.exec("/usr/bin/cb-healthcheck check >/dev/null 2>&1")
+    end
+    write_json(parse_json_file("/tmp/cb-health.json", { overall = "no_data" }))
+end
+
+function action_ha_status()
+    local run = http.formvalue("run")
+    if run == "1" then
+        sys.exec("/usr/bin/cb-ha-monitor check >/dev/null 2>&1")
+    end
+    write_json(parse_json_file("/tmp/cb-ha.json", { health = "no_data" }))
+end
+
+function action_dns_status()
+    local run = http.formvalue("run")
+    if run == "1" then
+        sys.exec("/usr/bin/cb-dns-guard check >/dev/null 2>&1")
+    end
+    write_json(parse_json_file("/tmp/cb-dns-health.json", { health = "no_data" }))
+end
+
+function action_events()
+    local lines = {}
+    local raw = sys.exec("tail -n 200 /tmp/cb-events.log 2>/dev/null")
+    for line in raw:gmatch("[^\r\n]+") do
+        local obj = json.parse(line)
+        if obj then
+            table.insert(lines, obj)
+        end
+    end
+    write_json({ events = lines, count = #lines })
+end
+
+function action_wizard_status()
+    local raw = sys.exec("/usr/bin/cb-wizard status 2>/dev/null")
+    local data = json.parse(raw) or parse_json_file("/tmp/cb-wizard.json", { required = true, done = false })
+    write_json(data)
+end
+
+function action_wizard_apply()
+    local password = http.formvalue("password") or ""
+    local timezone = http.formvalue("timezone") or "CST-8"
+    local zonename = http.formvalue("zonename") or "Asia/Shanghai"
+    local wan_proto = http.formvalue("wan_proto") or "dhcp"
+    local wan_user = http.formvalue("wan_user") or ""
+    local wan_pass = http.formvalue("wan_pass") or ""
+    local office_ssid = http.formvalue("office_ssid") or "CB-Shield-Office"
+    local office_key = http.formvalue("office_key") or "CBShield@Office2024"
+    local office5_ssid = http.formvalue("office5_ssid") or "CB-Shield-Office-5G"
+
+    local cmd = string.format(
+        "/usr/bin/cb-wizard apply %s %s %s %s %s %s %s %s %s 2>/dev/null",
+        shq(password), shq(timezone), shq(zonename), shq(wan_proto), shq(wan_user), shq(wan_pass),
+        shq(office_ssid), shq(office_key), shq(office5_ssid)
+    )
+    local out = sys.exec(cmd)
+    write_json(json.parse(out) or { status = "error", message = "wizard_apply_failed" })
+end
+
+function action_policy_status()
+    local run = http.formvalue("run")
+    if run == "1" then
+        sys.exec("/usr/bin/cb-policy-engine run_once >/dev/null 2>&1")
+    end
+    write_json(parse_json_file("/tmp/cb-policy.json", { enabled = false, shops = {} }))
+end
+
+function action_apply_template()
+    local id = http.formvalue("id")
+    local template = http.formvalue("template")
+    if not id or not id:match("^shop[1-5]$") then
+        http.status(400, "Bad Request")
+        write_json({ status = "bad_shop" })
+        return
+    end
+    if template ~= "direct" and template ~= "proxy" and template ~= "blocked" then
+        http.status(400, "Bad Request")
+        write_json({ status = "bad_template" })
+        return
+    end
+
+    local out = trim(sys.exec("/usr/bin/cb-policy-engine apply_template " .. shq(id) .. " " .. shq(template) .. " 2>/dev/null"))
+    if out == "ok" then
+        write_json({ status = "success", id = id, template = template })
+    else
+        write_json({ status = "error", message = out })
+    end
+end
+
+function action_upgrade_check()
+    local image = http.formvalue("image") or ""
+    local sha = http.formvalue("sha256") or ""
+    if image == "" then
+        http.status(400, "Bad Request")
+        write_json({ status = "error", message = "image_required" })
+        return
+    end
+
+    local cmd = "/usr/bin/cb-safe-upgrade check " .. shq(image)
+    if sha ~= "" then
+        cmd = cmd .. " " .. shq(sha)
+    end
+    local out = sys.exec(cmd .. " 2>/dev/null")
+    write_json(json.parse(out) or parse_json_file("/tmp/cb-upgrade-check.json", { all_ok = false, note = "check_failed" }))
 end

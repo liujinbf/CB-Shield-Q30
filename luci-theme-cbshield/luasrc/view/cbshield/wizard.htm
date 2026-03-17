@@ -1,0 +1,99 @@
+<%+header%>
+
+<link rel="stylesheet" href="/luci-static/cbshield/css/style.css" type="text/css" />
+
+<div class="cb-dashboard">
+    <div class="cb-page-header">
+        <h1>首次配置向导</h1>
+        <p class="cb-subtitle">P0 必填：管理员密码、时区、WAN 类型、办公 WiFi</p>
+    </div>
+
+    <div class="cb-section">
+        <h2>向导状态</h2>
+        <div class="cb-mini-stats">
+            <p>是否必填: <strong id="wiz-required">--</strong></p>
+            <p>是否完成: <strong id="wiz-done">--</strong></p>
+            <p>是否需要改密: <strong id="wiz-need-pass">--</strong></p>
+        </div>
+    </div>
+
+    <div class="cb-section">
+        <h2>向导参数</h2>
+        <div class="cb-form-panel">
+            <div class="cb-form-row"><label>管理员密码</label><input id="wiz-pass" type="password" class="cbi-input-password" style="min-width:260px;"></div>
+            <div class="cb-form-row"><label>时区值</label><input id="wiz-timezone" type="text" class="cbi-input-text" value="CST-8"></div>
+            <div class="cb-form-row"><label>时区名称</label><input id="wiz-zonename" type="text" class="cbi-input-text" value="Asia/Shanghai"></div>
+            <div class="cb-form-row">
+                <label>WAN 类型</label>
+                <select id="wiz-wan-proto" class="cbi-input-select">
+                    <option value="dhcp">DHCP</option>
+                    <option value="pppoe">PPPoE</option>
+                    <option value="static">Static</option>
+                </select>
+            </div>
+            <div class="cb-form-row"><label>PPPoE 用户名</label><input id="wiz-wan-user" type="text" class="cbi-input-text"></div>
+            <div class="cb-form-row"><label>PPPoE 密码</label><input id="wiz-wan-pass" type="password" class="cbi-input-password"></div>
+            <div class="cb-form-row"><label>办公 2.4G SSID</label><input id="wiz-ssid24" type="text" class="cbi-input-text" value="CB-Shield-Office"></div>
+            <div class="cb-form-row"><label>办公 5G SSID</label><input id="wiz-ssid5" type="text" class="cbi-input-text" value="CB-Shield-Office-5G"></div>
+            <div class="cb-form-row"><label>办公 WiFi 密码</label><input id="wiz-wifi-key" type="password" class="cbi-input-password" value="CBShield@Office2024"></div>
+            <div class="cb-form-row">
+                <button class="cb-btn cb-btn-primary" onclick="applyWizard()">保存并应用</button>
+                <button class="cb-btn cb-btn-secondary" onclick="loadWizardStatus()">刷新状态</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+
+function loadWizardStatus() {
+    fetch("/admin/cbshield/api/wizard_status")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            setText("wiz-required", data.required ? "是" : "否");
+            setText("wiz-done", data.done ? "是" : "否");
+            setText("wiz-need-pass", data.need_password_change ? "是" : "否");
+        })
+        .catch(function(e) { console.error("wizard status failed", e); });
+}
+
+function applyWizard() {
+    var password = document.getElementById("wiz-pass").value;
+    if (!password || password.length < 8) {
+        alert("管理员密码不能为空，且长度至少 8 位。");
+        return;
+    }
+
+    var params = new URLSearchParams();
+    params.append("password", password);
+    params.append("timezone", document.getElementById("wiz-timezone").value);
+    params.append("zonename", document.getElementById("wiz-zonename").value);
+    params.append("wan_proto", document.getElementById("wiz-wan-proto").value);
+    params.append("wan_user", document.getElementById("wiz-wan-user").value);
+    params.append("wan_pass", document.getElementById("wiz-wan-pass").value);
+    params.append("office_ssid", document.getElementById("wiz-ssid24").value);
+    params.append("office5_ssid", document.getElementById("wiz-ssid5").value);
+    params.append("office_key", document.getElementById("wiz-wifi-key").value);
+
+    fetch("/admin/cbshield/api/wizard_apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params
+    }).then(function(r) { return r.json(); })
+      .then(function(data) {
+          alert(data.status === "ok" ? "向导应用成功" : ("向导失败: " + JSON.stringify(data)));
+          loadWizardStatus();
+      })
+      .catch(function(e) {
+          alert("向导执行失败: " + e);
+      });
+}
+
+document.addEventListener("DOMContentLoaded", loadWizardStatus);
+</script>
+
+<%+footer%>

@@ -1,0 +1,100 @@
+<%+header%>
+
+<link rel="stylesheet" href="/luci-static/cbshield/css/style.css" type="text/css" />
+
+<div class="cb-dashboard">
+    <div class="cb-page-header">
+        <h1>运维中心</h1>
+        <p class="cb-subtitle">P0/P1 状态总览：启动自检、线路高可用、DNS 防泄漏、升级安全检查</p>
+    </div>
+
+    <div class="cb-section">
+        <h2>服务健康状态</h2>
+        <div class="cb-cards-row" id="health-cards">
+            <div class="cb-card cb-card-loading"><p>加载中...</p></div>
+        </div>
+        <div style="margin-top:10px;">
+            <button class="cb-btn cb-btn-secondary" onclick="refreshOps(true)">立即自检</button>
+        </div>
+    </div>
+
+    <div class="cb-section">
+        <h2>安全升级检查</h2>
+        <div class="cb-form-panel">
+            <div class="cb-form-row">
+                <label>镜像路径</label>
+                <input id="upgrade-image" class="cbi-input-text" type="text" value="/tmp/firmware.bin" style="min-width:360px;">
+            </div>
+            <div class="cb-form-row">
+                <label>SHA256(可选)</label>
+                <input id="upgrade-sha" class="cbi-input-text" type="text" value="" style="min-width:360px;">
+            </div>
+            <div class="cb-form-row">
+                <button class="cb-btn cb-btn-primary" onclick="runUpgradeCheck()">执行检查</button>
+            </div>
+            <pre id="upgrade-result" style="background:#0f172a;color:#d1e7ff;padding:10px;border-radius:10px;overflow:auto;max-height:260px;">{}</pre>
+        </div>
+    </div>
+</div>
+
+<script>
+function healthBadge(ok) {
+    return ok
+        ? "<span class=\"cb-badge cb-badge-success\">OK</span>"
+        : "<span class=\"cb-badge cb-badge-danger\">BAD</span>";
+}
+
+function renderHealth(health, ha, dns) {
+    var box = document.getElementById("health-cards");
+    if (!box) return;
+    var html = "";
+
+    html += "<div class=\"cb-card\"><h3>整体健康</h3><p class=\"cb-value-text\">" + (health.overall || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>Passwall</h3><p>" + healthBadge(health.passwall && health.passwall.running) + "</p><p class=\"cb-detail\">" + ((health.passwall && health.passwall.action) || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>风险守护</h3><p>" + healthBadge(health.riskcontrol && health.riskcontrol.running) + "</p><p class=\"cb-detail\">" + ((health.riskcontrol && health.riskcontrol.action) || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>Portal</h3><p>" + healthBadge(health.portal && health.portal.running) + "</p><p class=\"cb-detail\">" + ((health.portal && health.portal.action) || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>HA 状态</h3><p class=\"cb-value-text\">" + (ha.health || "--") + "</p><p class=\"cb-detail\">" + (ha.note || "--") + "</p></div>";
+    html += "<div class=\"cb-card\"><h3>DNS 防泄漏</h3><p class=\"cb-value-text\">" + (dns.health || "--") + "</p><p class=\"cb-detail\">" + (dns.note || "--") + "</p></div>";
+
+    box.innerHTML = html;
+}
+
+function refreshOps(runNow) {
+    var q = runNow ? "?run=1" : "";
+    Promise.all([
+        fetch("/admin/cbshield/api/health" + q).then(function(r) { return r.json(); }),
+        fetch("/admin/cbshield/api/ha_status" + q).then(function(r) { return r.json(); }),
+        fetch("/admin/cbshield/api/dns_status" + q).then(function(r) { return r.json(); })
+    ]).then(function(resp) {
+        renderHealth(resp[0] || {}, resp[1] || {}, resp[2] || {});
+    }).catch(function(e) {
+        console.error("ops refresh failed", e);
+    });
+}
+
+function runUpgradeCheck() {
+    var image = document.getElementById("upgrade-image").value;
+    var sha = document.getElementById("upgrade-sha").value;
+    var params = new URLSearchParams();
+    params.append("image", image);
+    if (sha) params.append("sha256", sha);
+
+    fetch("/admin/cbshield/api/upgrade_check", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params
+    }).then(function(r) { return r.json(); })
+      .then(function(data) {
+          document.getElementById("upgrade-result").textContent = JSON.stringify(data, null, 2);
+      })
+      .catch(function(e) {
+          document.getElementById("upgrade-result").textContent = JSON.stringify({ error: String(e) }, null, 2);
+      });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    refreshOps(false);
+});
+</script>
+
+<%+footer%>

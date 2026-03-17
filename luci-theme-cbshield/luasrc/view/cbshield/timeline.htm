@@ -1,0 +1,54 @@
+<%+header%>
+
+<link rel="stylesheet" href="/luci-static/cbshield/css/style.css" type="text/css" />
+
+<div class="cb-dashboard">
+    <div class="cb-page-header">
+        <h1>事件时间线</h1>
+        <p class="cb-subtitle">掉线、切换、风控动作、客户端接入、重启原因等事件追踪</p>
+    </div>
+
+    <div class="cb-section">
+        <h2>最近事件</h2>
+        <div class="cb-form-panel">
+            <div style="margin-bottom:10px;">
+                <button class="cb-btn cb-btn-secondary" onclick="loadEvents()">刷新</button>
+            </div>
+            <div id="timeline-list" style="max-height:560px;overflow:auto;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadEvents() {
+    fetch("/admin/cbshield/api/events")
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var list = document.getElementById("timeline-list");
+            if (!list) return;
+            var events = (data && data.events) || [];
+            if (!events.length) {
+                list.innerHTML = "<p class=\"cb-detail\">暂无事件</p>";
+                return;
+            }
+
+            var html = "";
+            events.reverse().forEach(function(e) {
+                html += "<div class=\"cb-card\" style=\"margin-bottom:10px;\">";
+                html += "  <h3>" + (e.type || "event") + "</h3>";
+                html += "  <p class=\"cb-detail\">" + (e.timestamp || "--") + "</p>";
+                html += "  <p>" + (e.message || "") + "</p>";
+                html += "</div>";
+            });
+            list.innerHTML = html;
+        })
+        .catch(function(e) {
+            console.error("load events failed", e);
+        });
+}
+
+document.addEventListener("DOMContentLoaded", loadEvents);
+setInterval(loadEvents, 15000);
+</script>
+
+<%+footer%>
