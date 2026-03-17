@@ -151,6 +151,11 @@ jobs:
         ls -lh
         test -n "$(ls *jcg_q30-pro*factory.bin 2>/dev/null)"
         test -n "$(ls *jcg_q30-pro*sysupgrade.bin 2>/dev/null)"
+        MANIFEST="$(ls *jcg_q30-pro*.manifest 2>/dev/null | head -n1)"
+        test -n "$MANIFEST"
+        grep -q '^luci-app-passwall ' "$MANIFEST"
+        grep -q '^cb-riskcontrol ' "$MANIFEST"
+        grep -q '^luci-theme-cbshield ' "$MANIFEST"
         rm -rf packages
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT

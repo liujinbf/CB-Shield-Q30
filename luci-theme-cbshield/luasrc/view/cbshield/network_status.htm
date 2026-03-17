@@ -1,12 +1,12 @@
 <%+header%>
 
-<link rel="stylesheet" href="<%=media%>/cbshield/css/style.css" type="text/css" />
-<script src="<%=media%>/cbshield/js/theme.js"></script>
+<link rel="stylesheet" href="/luci-static/cbshield/css/style.css" type="text/css" />
+<script src="/luci-static/cbshield/js/theme.js"></script>
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
         <h1>网络与多 WiFi 状态</h1>
-        <p class="cb-subtitle">隔离店铺网络实时监控</p>
+        <p class="cb-subtitle">隔离店铺网络实时监控与开关</p>
     </div>
 
     <div class="cb-section">
@@ -29,7 +29,7 @@
 
     <div class="cb-section">
         <div class="cb-mini-stats">
-            <p>Total clients: <strong id="total-clients">--</strong></p>
+            <p>在线客户端总数: <strong id="total-clients">--</strong></p>
         </div>
     </div>
 </div>
@@ -175,10 +175,10 @@ function renderShopCards(shops) {
         html += '    </label>';
         html += '  </div>';
         html += '  <div class="cb-shop-info">';
-        html += '    <p><strong>Status:</strong> ' + (isActive ? '<span style="color:#28a745">Enabled</span>' : '<span style="color:#888">Disabled</span>') + '</p>';
+        html += '    <p><strong>状态:</strong> ' + (isActive ? '<span style="color:#28a745">启用</span>' : '<span style="color:#888">禁用</span>') + '</p>';
         html += '    <p><strong>SSID:</strong> ' + (shop.ssid || ('CB-Shop-0' + shopIdx)) + '</p>';
         html += '    <p><strong>IP:</strong> ' + (shop.ip || '--') + '</p>';
-        html += '    <p><strong>Traffic:</strong> RX ' + (shop.rx_human || '0 B') + ' | TX ' + (shop.tx_human || '0 B') + '</p>';
+        html += '    <p><strong>流量:</strong> RX ' + (shop.rx_human || '0 B') + ' | TX ' + (shop.tx_human || '0 B') + '</p>';
         html += '  </div>';
         html += '</div>';
     }

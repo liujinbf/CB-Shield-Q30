@@ -13,6 +13,76 @@ function index()
     entry({"admin", "cbshield", "api", "connections"}, call("action_connections")).leaf = true
 end
 
+local function trim(s)
+    if not s then
+        return ""
+    end
+    return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function read_cpu_stat()
+    local stat = sys.exec("head -1 /proc/stat")
+    if stat and stat ~= "" then
+        local user, nice, systemv, idle, iowait, irq, softirq = stat:match(
+            "cpu%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)"
+        )
+        if user then
+            local total = tonumber(user) + tonumber(nice) + tonumber(systemv) + tonumber(idle) +
+                tonumber(iowait) + tonumber(irq) + tonumber(softirq)
+            return { idle = tonumber(idle), total = total }
+        end
+    end
+    return nil
+end
+
+local function format_bytes(bytes)
+    if bytes >= 1073741824 then
+        return string.format("%.2f GB", bytes / 1073741824)
+    elseif bytes >= 1048576 then
+        return string.format("%.2f MB", bytes / 1048576)
+    elseif bytes >= 1024 then
+        return string.format("%.2f KB", bytes / 1024)
+    else
+        return string.format("%d B", bytes)
+    end
+end
+
+local function get_iface_info(iface)
+    local info = { name = iface }
+    local status = sys.exec("ubus call network.interface." .. iface .. " status 2>/dev/null")
+
+    if status and status ~= "" then
+        local s = json.parse(status) or {}
+        info.up = s.up or false
+        info.disabled = s.disabled or false
+
+        if s["ipv4-address"] and s["ipv4-address"][1] then
+            info.ip = s["ipv4-address"][1].address or ""
+        else
+            info.ip = trim(sys.exec("uci -q get network." .. iface .. ".ipaddr"))
+        end
+
+        if s.device then
+            local dev = s.device
+            local rx = tonumber(trim(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/rx_bytes 2>/dev/null"))) or 0
+            local tx = tonumber(trim(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/tx_bytes 2>/dev/null"))) or 0
+            info.rx_human = format_bytes(rx)
+            info.tx_human = format_bytes(tx)
+        else
+            info.rx_human = "0 B"
+            info.tx_human = "0 B"
+        end
+    else
+        info.up = false
+        info.disabled = trim(sys.exec("uci -q get network." .. iface .. ".disabled")) == "1"
+        info.ip = trim(sys.exec("uci -q get network." .. iface .. ".ipaddr"))
+        info.rx_human = "0 B"
+        info.tx_human = "0 B"
+    end
+
+    return info
+end
+
 function action_sysinfo()
     local data = {}
 
@@ -50,7 +120,7 @@ function action_sysinfo()
         local days = math.floor(uptime_sec / 86400)
         local hours = math.floor((uptime_sec % 86400) / 3600)
         local mins = math.floor((uptime_sec % 3600) / 60)
-        data.uptime = string.format("%d天 %d小时 %d分钟", days, hours, mins)
+        data.uptime = string.format("%dd %dh %dm", days, hours, mins)
         data.uptime_seconds = uptime_sec
     end
 
@@ -73,9 +143,9 @@ function action_riskstatus()
     if f then
         local content = f:read("*a")
         f:close()
-        data = json.parse(content) or {status = "no_data"}
+        data = json.parse(content) or { status = "no_data" }
     else
-        data = {status = "service_not_running"}
+        data = { status = "service_not_running" }
     end
 
     local pid = trim(sys.exec("pgrep -f 'cb-riskcontrol daemon'"))
@@ -95,7 +165,7 @@ end
 function action_runcheck()
     sys.exec("/usr/bin/cb-riskcontrol check >/dev/null 2>&1 &")
     http.prepare_content("application/json")
-    http.write(json.stringify({status = "started"}))
+    http.write(json.stringify({ status = "started" }))
 end
 
 function action_network()
@@ -104,7 +174,7 @@ function action_network()
         shops = {}
     }
 
-    local base_ifaces = {"lan", "wan"}
+    local base_ifaces = { "lan", "wan" }
     for _, iface in ipairs(base_ifaces) do
         table.insert(data.interfaces, get_iface_info(iface))
     end
@@ -138,7 +208,7 @@ function action_toggle_shop()
     if not id or not id:match("^shop[1-5]$") then
         http.status(400, "Bad Request")
         http.prepare_content("application/json")
-        http.write(json.stringify({status = "bad_request"}))
+        http.write(json.stringify({ status = "bad_request" }))
         return
     end
 
@@ -149,10 +219,11 @@ function action_toggle_shop()
     sys.exec("uci set dhcp." .. id .. ".ignore='" .. disabled_val .. "'")
     sys.exec("uci set wireless." .. wifi_id .. ".disabled='" .. disabled_val .. "'")
     sys.exec("uci commit network; uci commit dhcp; uci commit wireless")
-    sys.exec("/sbin/reload_config &")
+    sys.exec("/sbin/reload_config >/dev/null 2>&1 &")
+    sys.exec("wifi reload >/dev/null 2>&1 &")
 
     http.prepare_content("application/json")
-    http.write(json.stringify({status = "success", enabled = enable}))
+    http.write(json.stringify({ status = "success", enabled = enable }))
 end
 
 function action_connections()
@@ -167,74 +238,4 @@ function action_connections()
 
     http.prepare_content("application/json")
     http.write(json.stringify(data))
-end
-
-function get_iface_info(iface)
-    local info = {name = iface}
-
-    local status = sys.exec("ubus call network.interface." .. iface .. " status 2>/dev/null")
-    if status and status ~= "" then
-        local s = json.parse(status) or {}
-        info.up = s.up or false
-        info.disabled = s.disabled or false
-
-        if s["ipv4-address"] and s["ipv4-address"][1] then
-            info.ip = s["ipv4-address"][1].address or ""
-        else
-            info.ip = trim(sys.exec("uci -q get network." .. iface .. ".ipaddr"))
-        end
-
-        if s.device then
-            local dev = s.device
-            local rx = tonumber(trim(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/rx_bytes 2>/dev/null"))) or 0
-            local tx = tonumber(trim(sys.exec("cat /sys/class/net/" .. dev .. "/statistics/tx_bytes 2>/dev/null"))) or 0
-            info.rx_human = format_bytes(rx)
-            info.tx_human = format_bytes(tx)
-        else
-            info.rx_human = "0 B"
-            info.tx_human = "0 B"
-        end
-    else
-        info.up = false
-        info.disabled = trim(sys.exec("uci -q get network." .. iface .. ".disabled")) == "1"
-        info.ip = trim(sys.exec("uci -q get network." .. iface .. ".ipaddr"))
-        info.rx_human = "0 B"
-        info.tx_human = "0 B"
-    end
-
-    return info
-end
-
-function read_cpu_stat()
-    local stat = sys.exec("head -1 /proc/stat")
-    if stat and stat ~= "" then
-        local user, nice, system, idle, iowait, irq, softirq = stat:match(
-            "cpu%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)"
-        )
-        if user then
-            local total = tonumber(user) + tonumber(nice) + tonumber(system) + tonumber(idle) +
-                tonumber(iowait) + tonumber(irq) + tonumber(softirq)
-            return {idle = tonumber(idle), total = total}
-        end
-    end
-    return nil
-end
-
-function format_bytes(bytes)
-    if bytes >= 1073741824 then
-        return string.format("%.2f GB", bytes / 1073741824)
-    elseif bytes >= 1048576 then
-        return string.format("%.2f MB", bytes / 1048576)
-    elseif bytes >= 1024 then
-        return string.format("%.2f KB", bytes / 1024)
-    else
-        return string.format("%d B", bytes)
-    end
-end
-
-function trim(s)
-    if not s then
-        return ""
-    end
-    return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end

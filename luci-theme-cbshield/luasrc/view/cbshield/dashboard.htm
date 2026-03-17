@@ -1,14 +1,24 @@
 <%+header%>
+<%
+    local fs = require "nixio.fs"
+    local has_passwall = fs.access("/usr/lib/lua/luci/controller/passwall.lua")
+%>
 
-<link rel="stylesheet" href="<%=media%>/cbshield/css/style.css" type="text/css" />
-<script src="<%=media%>/cbshield/js/theme.js"></script>
-<script src="<%=media%>/cbshield/js/dashboard.js"></script>
+<link rel="stylesheet" href="/luci-static/cbshield/css/style.css" type="text/css" />
+<script src="/luci-static/cbshield/js/theme.js"></script>
+<script src="/luci-static/cbshield/js/dashboard.js"></script>
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
         <h1>系统仪表盘</h1>
         <p class="cb-subtitle">CB-Shield-Q30 / KJWS</p>
     </div>
+
+    <% if has_passwall then %>
+    <div class="cb-section">
+        <a class="cb-btn cb-btn-primary" href="<%=luci.dispatcher.build_url('admin', 'services', 'passwall')%>">进入海外线路配置（Passwall）</a>
+    </div>
+    <% end %>
 
     <div class="cb-cards-row">
         <div class="cb-card" id="card-cpu">
@@ -55,16 +65,16 @@
         <div class="cb-risk-panel" id="risk-panel">
             <div class="cb-risk-indicator" id="risk-indicator">
                 <div class="cb-risk-score" id="risk-score">--</div>
-                <div class="cb-risk-label" id="risk-label">Loading...</div>
+                <div class="cb-risk-label" id="risk-label">加载中</div>
             </div>
             <div class="cb-risk-details">
                 <table class="cb-info-table">
                     <tr><td>IP</td><td id="risk-ip">--</td></tr>
-                    <tr><td>Location</td><td id="risk-location">--</td></tr>
+                    <tr><td>位置</td><td id="risk-location">--</td></tr>
                     <tr><td>ISP</td><td id="risk-isp">--</td></tr>
-                    <tr><td>Proxy</td><td id="risk-proxy">--</td></tr>
-                    <tr><td>Check Time</td><td id="risk-time">--</td></tr>
-                    <tr><td>Action</td><td id="risk-action">--</td></tr>
+                    <tr><td>代理</td><td id="risk-proxy">--</td></tr>
+                    <tr><td>检测时间</td><td id="risk-time">--</td></tr>
+                    <tr><td>执行动作</td><td id="risk-action">--</td></tr>
                 </table>
             </div>
         </div>

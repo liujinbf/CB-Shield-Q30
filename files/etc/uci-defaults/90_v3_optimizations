@@ -1,10 +1,10 @@
 #!/bin/sh
 # CB-Shield-Q30 首启优化与多 WiFi 初始化
 
-uci -q batch <<EOF
+uci -q batch <<'EOF'
 set luci.main.lang='zh_cn'
 set luci.main.mediaurlbase='/luci-static/argon'
-set luci.main.internal_auth='1'
+set luci.main.homepage='admin/cbshield/dashboard'
 set luci.themes.Argon='/luci-static/argon'
 commit luci
 
@@ -24,17 +24,7 @@ set dhcp.@dnsmasq[0].cachesize='1500'
 commit dhcp
 EOF
 
-mkdir -p /usr/lib/lua/luci/controller/admin/
-cat <<'EOF' > /usr/lib/lua/luci/controller/admin/index.lua
-module("luci.controller.admin.index", package.seeall)
-function index()
-    local root = node()
-    if not root.target then
-        root.target = alias("admin", "cbshield", "dashboard")
-    end
-end
-EOF
-
+# 预创建店铺网络（默认关闭）
 for i in 1 2 3 4 5; do
     uci -q batch <<EOF
 set network.shop$i=interface
@@ -42,41 +32,47 @@ set network.shop$i.proto='static'
 set network.shop$i.ipaddr='192.168.10$i.1'
 set network.shop$i.netmask='255.255.255.0'
 set network.shop$i.disabled='1'
+
+set dhcp.shop$i=dhcp
+set dhcp.shop$i.interface='shop$i'
+set dhcp.shop$i.start='10'
+set dhcp.shop$i.limit='50'
+set dhcp.shop$i.leasetime='12h'
+set dhcp.shop$i.ignore='1'
 commit network
+commit dhcp
 EOF
 done
 
-# Shop 网络 HTTP 强制跳转到本地落地页
-for i in 1 2 3 4 5; do
-    iptables -t nat -A PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080
-done
-
+# HTTP 强制跳转到本地落地页（店铺网络）
 cat <<'EOF' >> /etc/firewall.user
 # CB-Shield Portal Redirect
 for i in 1 2 3 4 5; do
-    iptables -t nat -A PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080 2>/dev/null
+    iptables -t nat -C PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080 2>/dev/null || \
+    iptables -t nat -A PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080
 done
 EOF
 
-/etc/init.d/cb-portal enable
-/etc/init.d/cb-portal start
-/etc/init.d/cb-riskcontrol enable
-/etc/init.d/cb-riskcontrol start
+/etc/init.d/cb-portal enable 2>/dev/null
+/etc/init.d/cb-portal start 2>/dev/null
+/etc/init.d/cb-riskcontrol enable 2>/dev/null
+/etc/init.d/cb-riskcontrol start 2>/dev/null
 
-wifi detect > /etc/config/wireless
+# 重新生成无线配置并启用办公 WiFi
+wifi config >/dev/null 2>&1 || wifi detect > /etc/config/wireless
 sed -i "s/option country 'US'/option country 'CN'/g" /etc/config/wireless
 
-RADIO0=$(uci -q get wireless.radio0.type)
-RADIO1=$(uci -q get wireless.radio1.type)
+RADIO0="$(uci -q get wireless.radio0.type)"
+RADIO1="$(uci -q get wireless.radio1.type)"
 
 if [ -n "$RADIO0" ]; then
-    uci -q batch <<EOF
+    uci -q batch <<'EOF'
 set wireless.radio0.channel='auto'
 set wireless.radio0.band='2g'
 set wireless.radio0.htmode='HE40'
 set wireless.radio0.country='CN'
 set wireless.radio0.disabled='0'
-set wireless.radio0.cell_density='0'
+set wireless.default_radio0.disabled='0'
 
 set wireless.office_24g=wifi-iface
 set wireless.office_24g.device='radio0'
@@ -89,20 +85,20 @@ EOF
 fi
 
 if [ -n "$RADIO1" ]; then
-    uci -q batch <<EOF
+    uci -q batch <<'EOF'
 set wireless.radio1.channel='auto'
 set wireless.radio1.band='5g'
-set wireless.radio1.htmode='HE160'
+set wireless.radio1.htmode='HE80'
 set wireless.radio1.country='CN'
 set wireless.radio1.disabled='0'
-set wireless.radio1.cell_density='0'
+set wireless.default_radio1.disabled='0'
 
 set wireless.office_5g=wifi-iface
 set wireless.office_5g.device='radio1'
 set wireless.office_5g.mode='ap'
 set wireless.office_5g.ssid='CB-Shield-Office-5G'
 set wireless.office_5g.network='lan'
-set wireless.office_5g.encryption='psk2+ccmp'
+set wireless.office_5g.encryption='psk2'
 set wireless.office_5g.key='CBShield@Office2024'
 EOF
 
@@ -113,7 +109,7 @@ set wireless.shop${i}_5g.device='radio1'
 set wireless.shop${i}_5g.mode='ap'
 set wireless.shop${i}_5g.ssid='CB-Shop-0$i'
 set wireless.shop${i}_5g.network='shop$i'
-set wireless.shop${i}_5g.encryption='sae-mixed'
+set wireless.shop${i}_5g.encryption='psk2'
 set wireless.shop${i}_5g.key='Shop$i@Password'
 set wireless.shop${i}_5g.isolate='1'
 set wireless.shop${i}_5g.disabled='1'
@@ -122,10 +118,12 @@ EOF
 fi
 
 uci commit wireless
+wifi reload >/dev/null 2>&1 || true
 
 cat <<'EOF' > /etc/init.d/mac_randomizer
 #!/bin/sh /etc/rc.common
 START=15
+
 start() {
     for i in 1 2 3 4 5; do
         if uci -q get wireless.shop${i}_5g >/dev/null; then

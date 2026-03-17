@@ -34,7 +34,6 @@
             colorizeValue('card-memory', data.mem_usage, [70, 90]);
 
             setElementText('uptime-value', data.uptime);
-
             setElementText('load-1', data.load_1min);
             setElementText('load-5', data.load_5min);
             setElementText('load-15', data.load_15min);
@@ -86,10 +85,10 @@
             }
 
             var ifaceMap = {
-                wan: {ip: 'wan-ip', rx: 'wan-rx', tx: 'wan-tx'},
-                lan: {ip: 'office-ip', rx: 'office-rx', tx: 'office-tx'},
-                shop1: {ip: 'guest-ip', rx: 'guest-rx', tx: 'guest-tx'},
-                shop2: {ip: 'ecom-ip', rx: 'ecom-rx', tx: 'ecom-tx'}
+                wan: { ip: 'wan-ip', rx: 'wan-rx', tx: 'wan-tx' },
+                lan: { ip: 'office-ip', rx: 'office-rx', tx: 'office-tx' },
+                shop1: { ip: 'guest-ip', rx: 'guest-rx', tx: 'guest-tx' },
+                shop2: { ip: 'ecom-ip', rx: 'ecom-rx', tx: 'ecom-tx' }
             };
 
             for (var i = 0; i < allIfaces.length; i++) {

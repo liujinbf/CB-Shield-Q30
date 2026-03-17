@@ -1,7 +1,4 @@
 #!/bin/sh /etc/rc.common
-# ============================================================
-# CB-Shield-Q30 风控服务 init.d 脚本
-# ============================================================
 
 START=99
 STOP=10
@@ -36,6 +33,6 @@ status_service() {
     if [ -f /tmp/cb-riskcontrol.json ]; then
         cat /tmp/cb-riskcontrol.json
     else
-        echo "风控服务状态未知"
+        echo '{"status":"no_data"}'
     fi
 }
