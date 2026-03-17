@@ -21,7 +21,7 @@
 
 <script>
 function loadEvents() {
-    fetch("/admin/cbshield/api/events")
+    fetch("/cgi-bin/luci/admin/cbshield/api/events")
         .then(function(r) { return r.json(); })
         .then(function(data) {
             var list = document.getElementById("timeline-list");

@@ -62,9 +62,9 @@ function renderHealth(health, ha, dns) {
 function refreshOps(runNow) {
     var q = runNow ? "?run=1" : "";
     Promise.all([
-        fetch("/admin/cbshield/api/health" + q).then(function(r) { return r.json(); }),
-        fetch("/admin/cbshield/api/ha_status" + q).then(function(r) { return r.json(); }),
-        fetch("/admin/cbshield/api/dns_status" + q).then(function(r) { return r.json(); })
+        fetch("/cgi-bin/luci/admin/cbshield/api/health" + q).then(function(r) { return r.json(); }),
+        fetch("/cgi-bin/luci/admin/cbshield/api/ha_status" + q).then(function(r) { return r.json(); }),
+        fetch("/cgi-bin/luci/admin/cbshield/api/dns_status" + q).then(function(r) { return r.json(); })
     ]).then(function(resp) {
         renderHealth(resp[0] || {}, resp[1] || {}, resp[2] || {});
     }).catch(function(e) {
@@ -79,7 +79,7 @@ function runUpgradeCheck() {
     params.append("image", image);
     if (sha) params.append("sha256", sha);
 
-    fetch("/admin/cbshield/api/upgrade_check", {
+    fetch("/cgi-bin/luci/admin/cbshield/api/upgrade_check", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params

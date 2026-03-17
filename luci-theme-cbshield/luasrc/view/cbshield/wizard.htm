@@ -51,7 +51,7 @@ function setText(id, val) {
 }
 
 function loadWizardStatus() {
-    fetch("/admin/cbshield/api/wizard_status")
+    fetch("/cgi-bin/luci/admin/cbshield/api/wizard_status")
         .then(function(r) { return r.json(); })
         .then(function(data) {
             setText("wiz-required", data.required ? "是" : "否");
@@ -79,7 +79,7 @@ function applyWizard() {
     params.append("office5_ssid", document.getElementById("wiz-ssid5").value);
     params.append("office_key", document.getElementById("wiz-wifi-key").value);
 
-    fetch("/admin/cbshield/api/wizard_apply", {
+    fetch("/cgi-bin/luci/admin/cbshield/api/wizard_apply", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params

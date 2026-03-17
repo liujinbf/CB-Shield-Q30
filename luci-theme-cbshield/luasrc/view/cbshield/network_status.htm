@@ -44,7 +44,7 @@ function postForm(url, bodyObj) {
 
 function loadNetworkStatus() {
     if (isBusy) return;
-    fetch("/admin/cbshield/api/network")
+    fetch("/cgi-bin/luci/admin/cbshield/api/network")
         .then(function(r) { return r.json(); })
         .then(function(data) {
             renderInterfaceCards(data.interfaces || []);
@@ -118,7 +118,7 @@ function toggleShop(shopId, enable) {
     var inputs = document.querySelectorAll(".cb-switch input");
     inputs.forEach(function(el) { el.disabled = true; });
 
-    postForm("/admin/cbshield/api/toggle_shop", { id: shopId, enable: enable ? "1" : "0" })
+    postForm("/cgi-bin/luci/admin/cbshield/api/toggle_shop", { id: shopId, enable: enable ? "1" : "0" })
         .finally(function() {
             setTimeout(function() {
                 isBusy = false;
@@ -129,7 +129,7 @@ function toggleShop(shopId, enable) {
 
 function applyTemplate(shopId, template) {
     isBusy = true;
-    postForm("/admin/cbshield/api/apply_template", { id: shopId, template: template })
+    postForm("/cgi-bin/luci/admin/cbshield/api/apply_template", { id: shopId, template: template })
         .then(function() { loadNetworkStatus(); })
         .finally(function() {
             setTimeout(function() { isBusy = false; }, 500);

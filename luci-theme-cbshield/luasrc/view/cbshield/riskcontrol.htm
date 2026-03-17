@@ -124,7 +124,7 @@ function updateRiskDisplay(data) {
 }
 
 function refreshStatus() {
-    fetch("/admin/cbshield/api/riskstatus")
+    fetch("/cgi-bin/luci/admin/cbshield/api/riskstatus")
         .then(function(r) { return r.json(); })
         .then(function(data) { updateRiskDisplay(data); })
         .catch(function(e) { console.error("failed to fetch risk status:", e); });
@@ -137,7 +137,7 @@ function manualCheck() {
     btn.textContent = "检测中...";
     btn.disabled = true;
 
-    fetch("/admin/cbshield/api/runcheck", { method: "POST" })
+    fetch("/cgi-bin/luci/admin/cbshield/api/runcheck", { method: "POST" })
         .then(function() {
             setTimeout(function() {
                 refreshStatus();

@@ -68,4 +68,7 @@ define Package/cb-riskcontrol/postinst
 }
 endef
 
+define Build/Compile
+endef
+
 $(eval $(call BuildPackage,cb-riskcontrol))

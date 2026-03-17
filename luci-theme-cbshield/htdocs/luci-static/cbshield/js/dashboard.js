@@ -4,7 +4,7 @@
 (function() {
     "use strict";
 
-    var API_BASE = "/admin/cbshield/api";
+    var API_BASE = "/cgi-bin/luci/admin/cbshield/api";
     var POLL_INTERVAL = 5000;
 
     function initDashboard() {
