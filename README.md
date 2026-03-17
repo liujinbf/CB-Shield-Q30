@@ -34,11 +34,22 @@
 
 ## 快速开始
 
-### 自动编译 (推荐)
+### 自动编译
 
 1. Fork 本仓库到你的 GitHub
-2. 进入 **Actions** → 手动触发 **Build CB-Shield-Q30 OpenWrt Firmware**
-3. 等待编译完成（约 2-4 小时），下载 Artifact 中的固件
+2. 进入 **Actions**
+3. 开发版固件使用 **Build Dev Firmware**
+4. 稳定版固件使用 **Build Stable Firmware**
+5. 等待编译完成后，从 Artifact 下载 `factory.bin` 和 `sysupgrade.bin`
+
+### 本地主编译 (推荐)
+
+```bash
+# Linux / WSL2 / 自托管 Runner
+bash scripts/local-build.sh stable
+```
+
+产物会输出到 `artifacts/stable/`。
 
 ### 手动编译
 
@@ -55,13 +66,13 @@ cp /path/to/CB-Shield-Q30/.config .
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
-# 4. 复制自定义文件
-cp -r /path/to/CB-Shield-Q30/luci-theme-cbshield package/
-cp -r /path/to/CB-Shield-Q30/packages/cb-riskcontrol package/
-cp -r /path/to/CB-Shield-Q30/files .
+# 4. 准备工程
+bash /path/to/CB-Shield-Q30/scripts/prepare-openwrt.sh "$(pwd)" stable
 
-# 5. 编译
-make defconfig
+# 5. 预编译自定义包
+bash /path/to/CB-Shield-Q30/scripts/package-preflight.sh "$(pwd)"
+
+# 6. 编译
 make download -j8
 make -j$(nproc) V=s
 ```
@@ -72,8 +83,9 @@ make -j$(nproc) V=s
 CB-Shield-Q30/
 ├── .config                    编译配置 (mediatek/filogic)
 ├── feeds.conf.default         Feeds 源定义 (含 Passwall)
-├── .github/workflows/         GitHub Actions CI
-├── scripts/                   自定义构建脚本
+├── .github/workflows/         Dev/Stable 双工作流
+├── profiles/                  Dev/Stable 编译差异配置
+├── scripts/                   本地主编译与预检查脚本
 ├── files/etc/config/          UCI 网络/防火墙/DHCP/风控配置
 ├── packages/cb-riskcontrol/   IP 风控检测包
 └── luci-theme-cbshield/       KJWS LuCI 主题
