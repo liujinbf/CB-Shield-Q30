@@ -1,17 +1,16 @@
-config queue 'eth0'
+config queue 'wan_default'
 	option enabled '0'
-	option interface 'eth0'
+	option interface 'wan'
 	option download '0'
 	option upload '0'
 	option qdisc 'cake'
 	option script 'piece_of_cake.qos'
 	option linklayer 'none'
 
-# 配置电商 VLAN 独享的一套 Cake 队列
-# upload 设置为 0 代表不限速，您可以随时在 LuCI 页面调整这个值
-config queue 'ecom'
-	option enabled '1'
-	option interface 'br-vlan_ecom'
+# 多 WiFi 架构下的店铺队列模板（默认关闭，按需启用）
+config queue 'shop1'
+	option enabled '0'
+	option interface 'shop1'
 	option download '0'
 	option upload '0'
 	option qdisc 'cake'

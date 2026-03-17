@@ -1,30 +1,31 @@
 #!/bin/sh
-# =========================================================
-# CB-Shield-Q30 V3.0 动态硬件适配脚本
-# 此脚本在系统初始化过程中执行，确保护卫舰定制功能与底层驱动解耦
-# =========================================================
+# CB-Shield-Q30 首启优化与多 WiFi 初始化
 
-# --- 0. 全局 UI 与 语言初始化 (适配 23.05) ---
 uci -q batch <<EOF
-    set luci.main.lang='zh_cn'
-    set luci.main.mediaurlbase='/luci-static/argon'
-    set luci.main.internal_auth='1'
-    commit luci
-    
-    # 强制设定默认主题为 Argon
-    set luci.themes.Argon='/luci-static/argon'
-    commit luci
+set luci.main.lang='zh_cn'
+set luci.main.mediaurlbase='/luci-static/argon'
+set luci.main.internal_auth='1'
+set luci.themes.Argon='/luci-static/argon'
+commit luci
 
-    set system.@system[0].hostname='CB-Shield-Q30'
-    set system.@system[0].timezone='CST-8'
-    set system.@system[0].zonename='Asia/Shanghai'
-    commit system
+set system.@system[0].hostname='CB-Shield-Q30'
+set system.@system[0].timezone='CST-8'
+set system.@system[0].zonename='Asia/Shanghai'
+delete system.ntp.server
+add_list system.ntp.server='time.cloudflare.com'
+add_list system.ntp.server='time.google.com'
+add_list system.ntp.server='pool.ntp.org'
+commit system
+
+set network.lan.ipaddr='192.168.10.1'
+commit network
+
+set dhcp.@dnsmasq[0].cachesize='1500'
+commit dhcp
 EOF
 
-# --- 0.1 首页重定向安全补丁 (取代暴力 Hack) ---
-# 创建一个简单的重定向控制器，将 /cgi-bin/luci 直接导向仪表盘
 mkdir -p /usr/lib/lua/luci/controller/admin/
-cat << 'EOF' > /usr/lib/lua/luci/controller/admin/index.lua
+cat <<'EOF' > /usr/lib/lua/luci/controller/admin/index.lua
 module("luci.controller.admin.index", package.seeall)
 function index()
     local root = node()
@@ -34,129 +35,98 @@ function index()
 end
 EOF
 
-# --- 1. 基础系统与网络优化 ---
-uci -q batch <<EOF
-    # LAN IP 改回 192.168.10.1
-    set network.lan.ipaddr='192.168.10.1'
-    
-    # 彻底剔除国内 NTP，改用国际公共池
-    delete system.ntp.server
-    add_list system.ntp.server='time.cloudflare.com'
-    add_list system.ntp.server='time.google.com'
-    add_list system.ntp.server='pool.ntp.org'
-    
-    # Dnsmasq 优化 (扩容缓存)
-    set dhcp.@dnsmasq[0].cachesize='1500'
-EOF
-
-# --- 2. 动态重建跨境独立网络接口 (Shop1 - Shop5) ---
 for i in 1 2 3 4 5; do
     uci -q batch <<EOF
-        set network.shop$i=interface
-        set network.shop$i.proto='static'
-        set network.shop$i.ipaddr="192.168.10$i.1"
-        set network.shop$i.netmask='255.255.255.0'
-        set network.shop$i.disabled='1'
+set network.shop$i=interface
+set network.shop$i.proto='static'
+set network.shop$i.ipaddr='192.168.10$i.1'
+set network.shop$i.netmask='255.255.255.0'
+set network.shop$i.disabled='1'
+commit network
 EOF
 done
-uci commit network
 
-# --- 6. 落地页跳转逻辑 (V3.0 Portal 核心) ---
-# 将所有来自 Shop 隔离网络的 HTTP (80) 流量强制重定向至本地落地页 (8080)
-# 这样用户连接 WiFi 后尝试打开网页，会立即跳转到我们的品牌页面
-iptables -t nat -A PREROUTING -i shop1 -p tcp --dport 80 -j DNAT --to-destination :8080
-iptables -t nat -A PREROUTING -i shop2 -p tcp --dport 80 -j DNAT --to-destination :8080
-iptables -t nat -A PREROUTING -i shop3 -p tcp --dport 80 -j DNAT --to-destination :8080
-iptables -t nat -A PREROUTING -i shop4 -p tcp --dport 80 -j DNAT --to-destination :8080
-iptables -t nat -A PREROUTING -i shop5 -p tcp --dport 80 -j DNAT --to-destination :8080
+# Shop 网络 HTTP 强制跳转到本地落地页
+for i in 1 2 3 4 5; do
+    iptables -t nat -A PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080
+done
 
-# 确保对应的防火墙规则持久化 (针对 nftables/fw4)
-cat << 'EOF' >> /etc/firewall.user
+cat <<'EOF' >> /etc/firewall.user
 # CB-Shield Portal Redirect
 for i in 1 2 3 4 5; do
-    iptables -t nat -A PREROUTING -i shop$i -p tcp --dport 80 -j DNAT --to-destination :8080 2>/dev/null
+    iptables -t nat -A PREROUTING -i "shop$i" -p tcp --dport 80 -j DNAT --to-destination :8080 2>/dev/null
 done
 EOF
 
-# 强制开启风控与落地页服务
 /etc/init.d/cb-portal enable
 /etc/init.d/cb-portal start
 /etc/init.d/cb-riskcontrol enable
 /etc/init.d/cb-riskcontrol start
 
-# --- 2. 动态重建无线环境 (1 Office + 5 Shops) ---
-# 先执行探测并强制设置国家码，改善兼容性
 wifi detect > /etc/config/wireless
 sed -i "s/option country 'US'/option country 'CN'/g" /etc/config/wireless
 
-# 获取 radio 名称并进行配置 (MT7981 通常有 radio0 和 radio1)
 RADIO0=$(uci -q get wireless.radio0.type)
 RADIO1=$(uci -q get wireless.radio1.type)
 
-[ -n "$RADIO0" ] && {
-    # 2.4G 基础配置
+if [ -n "$RADIO0" ]; then
     uci -q batch <<EOF
-        set wireless.radio0.channel='auto'
-        set wireless.radio0.band='2g'
-        set wireless.radio0.htmode='HE40'
-        set wireless.radio0.country='CN'
-        set wireless.radio0.disabled='0'
-        set wireless.radio0.cell_density='0'
-        
-        # 2.4G Office SSID
-        set wireless.office_24g=wifi-iface
-        set wireless.office_24g.device='radio0'
-        set wireless.office_24g.mode='ap'
-        set wireless.office_24g.ssid='CB-Shield-Office'
-        set wireless.office_24g.network='lan'
-        set wireless.office_24g.encryption='psk2'
-        set wireless.office_24g.key='CBShield@Office2024'
-EOF
-}
+set wireless.radio0.channel='auto'
+set wireless.radio0.band='2g'
+set wireless.radio0.htmode='HE40'
+set wireless.radio0.country='CN'
+set wireless.radio0.disabled='0'
+set wireless.radio0.cell_density='0'
 
-[ -n "$RADIO1" ] && {
-    # 5G 基础配置
+set wireless.office_24g=wifi-iface
+set wireless.office_24g.device='radio0'
+set wireless.office_24g.mode='ap'
+set wireless.office_24g.ssid='CB-Shield-Office'
+set wireless.office_24g.network='lan'
+set wireless.office_24g.encryption='psk2'
+set wireless.office_24g.key='CBShield@Office2024'
+EOF
+fi
+
+if [ -n "$RADIO1" ]; then
     uci -q batch <<EOF
-        set wireless.radio1.channel='auto'
-        set wireless.radio1.band='5g'
-        set wireless.radio1.htmode='HE160'
-        set wireless.radio1.country='CN'
-        set wireless.radio1.disabled='0'
-        set wireless.radio1.cell_density='0'
-        
-        # 5G Office SSID
-        set wireless.office_5g=wifi-iface
-        set wireless.office_5g.device='radio1'
-        set wireless.office_5g.mode='ap'
-        set wireless.office_5g.ssid='CB-Shield-Office-5G'
-        set wireless.office_5g.network='lan'
-        set wireless.office_5g.encryption='psk2+ccmp'
-        set wireless.office_5g.key='CBShield@Office2024'
+set wireless.radio1.channel='auto'
+set wireless.radio1.band='5g'
+set wireless.radio1.htmode='HE160'
+set wireless.radio1.country='CN'
+set wireless.radio1.disabled='0'
+set wireless.radio1.cell_density='0'
+
+set wireless.office_5g=wifi-iface
+set wireless.office_5g.device='radio1'
+set wireless.office_5g.mode='ap'
+set wireless.office_5g.ssid='CB-Shield-Office-5G'
+set wireless.office_5g.network='lan'
+set wireless.office_5g.encryption='psk2+ccmp'
+set wireless.office_5g.key='CBShield@Office2024'
 EOF
 
-    # 5G Shop1 - Shop5 SSIDs
     for i in 1 2 3 4 5; do
         uci -q batch <<EOF
-            set wireless.shop${i}_5g=wifi-iface
-            set wireless.shop${i}_5g.device='radio1'
-            set wireless.shop${i}_5g.mode='ap'
-            set wireless.shop${i}_5g.ssid="CB-Shop-0$i"
-            set wireless.shop${i}_5g.network="shop$i"
-            set wireless.shop${i}_5g.encryption='sae-mixed'
-            set wireless.shop${i}_5g.key="Shop$i@Password"
-            set wireless.shop${i}_5g.isolate='1'
-            set wireless.shop${i}_5g.disabled='1'
+set wireless.shop${i}_5g=wifi-iface
+set wireless.shop${i}_5g.device='radio1'
+set wireless.shop${i}_5g.mode='ap'
+set wireless.shop${i}_5g.ssid='CB-Shop-0$i'
+set wireless.shop${i}_5g.network='shop$i'
+set wireless.shop${i}_5g.encryption='sae-mixed'
+set wireless.shop${i}_5g.key='Shop$i@Password'
+set wireless.shop${i}_5g.isolate='1'
+set wireless.shop${i}_5g.disabled='1'
 EOF
     done
-}
+fi
+
 uci commit wireless
 
-# --- 4. 生成 MAC 随机化守护脚本 ---
-cat << 'EOF' > /etc/init.d/mac_randomizer
+cat <<'EOF' > /etc/init.d/mac_randomizer
 #!/bin/sh /etc/rc.common
 START=15
 start() {
-    # 每次开机为选定的 Shop SSID 生成随机 MAC
     for i in 1 2 3 4 5; do
         if uci -q get wireless.shop${i}_5g >/dev/null; then
             NEW_MAC="02:$(hexdump -n 5 -e '5/1 "%02x:"' /dev/urandom | sed 's/.$//')"
@@ -166,6 +136,7 @@ start() {
     uci commit wireless
 }
 EOF
+
 chmod +x /etc/init.d/mac_randomizer
 /etc/init.d/mac_randomizer enable
 

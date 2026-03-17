@@ -148,6 +148,9 @@ jobs:
       if: steps.compile.outputs.status == 'success'
       run: |
         cd openwrt/bin/targets/*/*
+        ls -lh
+        test -n "$(ls *jcg_q30-pro*factory.bin 2>/dev/null)"
+        test -n "$(ls *jcg_q30-pro*sysupgrade.bin 2>/dev/null)"
         rm -rf packages
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT

@@ -5,13 +5,12 @@
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
-        <h1>🛡️ IP 风控管理</h1>
+        <h1>IP 风控管理</h1>
         <p class="cb-subtitle">实时监控 WAN IP 风险状态</p>
     </div>
 
-    <!-- 控制面板 -->
     <div class="cb-section">
-        <h2>⚙️ 风控设置</h2>
+        <h2>风控设置</h2>
         <div class="cb-form-panel">
             <div class="cb-form-row">
                 <label>服务状态</label>
@@ -32,15 +31,14 @@
             <div class="cb-form-row">
                 <button class="cb-btn cb-btn-primary" onclick="manualCheck()">立即检测</button>
                 <button class="cb-btn cb-btn-secondary" onclick="refreshStatus()">刷新状态</button>
-                <a href="javascript:void(0)" onclick="window.open('http://' + window.location.hostname + ':8080/')" class="cb-btn cb-btn-secondary" style="margin-left: 10px; background-color: #f0f4f8; color: var(--primary); text-decoration: none; display: inline-block; padding: 8px 15px;">🔗 本地高级业务落地页</a>
-                <a id="cloud-portal-btn" href="#" target="_blank" class="cb-btn cb-btn-secondary" style="margin-left: 10px; background-color: #f0f4f8; color: var(--primary); text-decoration: none; display: inline-block; padding: 8px 15px; opacity: 0.5; pointer-events: none;">⏳ 获取云端落地页...</a>
+                <a href="javascript:void(0)" onclick="window.open('http://' + window.location.hostname + ':8080/')" class="cb-btn cb-btn-secondary" style="margin-left:10px;background-color:#f0f4f8;color:var(--primary);text-decoration:none;display:inline-block;padding:8px 15px;">本地落地页</a>
+                <a id="cloud-portal-btn" href="#" target="_blank" class="cb-btn cb-btn-secondary" style="margin-left:10px;background-color:#f0f4f8;color:var(--primary);text-decoration:none;display:inline-block;padding:8px 15px;opacity:0.5;pointer-events:none;">获取云端落地页...</a>
             </div>
         </div>
     </div>
 
-    <!-- 当前状态 -->
     <div class="cb-section">
-        <h2>📊 当前检测结果</h2>
+        <h2>当前检测结果</h2>
         <div class="cb-risk-panel cb-risk-panel-full" id="rc-result-panel">
             <div class="cb-risk-header">
                 <div class="cb-risk-indicator-large" id="rc-risk-circle">
@@ -71,62 +69,31 @@
             </div>
         </div>
     </div>
-
-    <!-- 使用说明 -->
-    <div class="cb-section">
-        <h2>📖 风控说明</h2>
-        <div class="cb-info-box">
-            <h4>风险评分规则</h4>
-            <ul>
-                <li><strong>代理 IP</strong>：+50 分 — 检测到 IP 经过代理服务器转发</li>
-                <li><strong>托管/数据中心 IP</strong>：+30 分 — IP 属于云服务器/数据中心</li>
-                <li><strong>可疑组织</strong>：+20 分 — ISP/组织名包含 VPN、Proxy 等关键词</li>
-            </ul>
-            <h4>风险等级</h4>
-            <ul>
-                <li>🟢 <strong>低风险</strong> (0-29分)：IP 安全</li>
-                <li>🟡 <strong>中风险</strong> (30-49分)：需注意</li>
-                <li>🟠 <strong>高风险</strong> (50-79分)：建议切换 IP</li>
-                <li>🔴 <strong>极高风险</strong> (80-100分)：立即处理</li>
-            </ul>
-            <h4>👑 V2.2 黄金版 - 核心级防护机制 (原生运行)</h4>
-            <ul>
-                <li><strong>TTL 指纹伪装</strong>：强制外网出口 TTL 为 128 (模拟标准 Windows 办公环境)，消除路由器指纹。</li>
-                <li><strong>WebRTC 物理阻断</strong>：底层屏蔽 STUN/TURN 全系端口，100% 防止浏览器真实 IP 穿透泄漏。</li>
-                <li><strong>极速时区对齐</strong>：守护进程根据代理 IP 精准时区自动对齐系统，消除跨区时差指纹。</li>
-                <li><strong>流量锁 (Kill Switch)</strong>：基于 Nftables 开发，一旦检测到代理掉线，瞬间物理阻断内网转发，杜绝裸连！</li>
-            </ul>
-        </div>
-    </div>
 </div>
 
 <script>
 function refreshStatus() {
     fetch('/admin/cbshield/api/riskstatus')
         .then(function(r) { return r.json(); })
-        .then(function(data) {
-            updateRiskDisplay(data);
-        })
-        .catch(function(e) {
-            console.error('获取风控状态失败:', e);
-        });
+        .then(function(data) { updateRiskDisplay(data); })
+        .catch(function(e) { console.error('failed to fetch risk status:', e); });
 }
 
 function manualCheck() {
     var btn = document.querySelector('.cb-btn-primary');
-    btn.textContent = '检测中...';
+    btn.textContent = 'Checking...';
     btn.disabled = true;
 
-    fetch('/cgi-bin/luci/command/cb-riskcontrol check', {method: 'POST'})
+    fetch('/admin/cbshield/api/runcheck', { method: 'POST' })
         .then(function() {
             setTimeout(function() {
                 refreshStatus();
-                btn.textContent = '立即检测';
+                btn.textContent = 'Run Check';
                 btn.disabled = false;
             }, 3000);
         })
         .catch(function() {
-            btn.textContent = '立即检测';
+            btn.textContent = 'Run Check';
             btn.disabled = false;
         });
 }
@@ -151,29 +118,32 @@ function updateRiskDisplay(data) {
     setTextById('rc-isp', data.isp);
     setTextById('rc-org', data.org);
     setTextById('rc-asn', data.asn);
-    setTextById('rc-proxy', data.is_proxy ? '⚠️ 是' : '✅ 否');
-    setTextById('rc-hosting', data.is_hosting ? '⚠️ 是' : '✅ 否');
-    setTextById('rc-factors', data.risk_factors || '无');
-    setTextById('rc-action-taken', data.action_taken || '无');
+    setTextById('rc-proxy', data.is_proxy ? 'Yes' : 'No');
+    setTextById('rc-hosting', data.is_hosting ? 'Yes' : 'No');
+    setTextById('rc-factors', data.risk_factors || 'None');
+    setTextById('rc-action-taken', data.action_taken || 'None');
+    setTextById('rc-interval', data.check_interval);
+    setTextById('rc-threshold', data.risk_threshold);
+    setTextById('rc-action', data.action);
 
     var serviceEl = document.getElementById('rc-service-status');
     if (data.service_running) {
-        serviceEl.textContent = '运行中';
+        serviceEl.textContent = 'Running';
         serviceEl.className = 'cb-badge cb-badge-success';
     } else {
-        serviceEl.textContent = '已停止';
+        serviceEl.textContent = 'Stopped';
         serviceEl.className = 'cb-badge cb-badge-danger';
     }
 }
 
 function getRiskLevelText(level) {
     var map = {
-        'low': '🟢 低风险',
-        'medium': '🟡 中风险',
-        'high': '🟠 高风险',
-        'critical': '🔴 极高风险'
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical'
     };
-    return map[level] || '未知';
+    return map[level] || 'Unknown';
 }
 
 function setTextById(id, text) {
@@ -182,36 +152,31 @@ function setTextById(id, text) {
 }
 
 function fetchCloudConfig() {
-    // 自动拉取厂商发布的云端全球配置
-    // 这里使用一个固定的公开 raw 链接，建议生产环境使用可靠的 CDN 代理防止 GitHub 被墙
     var configUrl = 'https://raw.githubusercontent.com/liujinbf/CB-Shield-Q30/main/portal_config.json?t=' + new Date().getTime();
     fetch(configUrl)
         .then(function(r) { return r.json(); })
         .then(function(data) {
             var btn = document.getElementById('cloud-portal-btn');
-            if(data && data.portal_url) {
+            if (data && data.portal_url) {
                 btn.href = data.portal_url;
-                btn.textContent = '🌐 云端高级业务落地页';
+                btn.textContent = 'Cloud Portal';
                 btn.style.opacity = '1';
                 btn.style.pointerEvents = 'auto';
             }
         })
-        .catch(function(e) {
-            console.warn('无法获取云端配置, 使用降级默认链接', e);
+        .catch(function() {
             var btn = document.getElementById('cloud-portal-btn');
             btn.href = 'https://liujinbf.github.io/CB-Shield-Q30/';
-            btn.textContent = '🌐 云端高级业务落地页';
+            btn.textContent = 'Cloud Portal';
             btn.style.opacity = '1';
             btn.style.pointerEvents = 'auto';
         });
 }
 
-// 页面加载时自动获取状态和云端配置
 document.addEventListener('DOMContentLoaded', function() {
     refreshStatus();
     fetchCloudConfig();
 });
-// 每 30 秒自动刷新检测状态
 setInterval(refreshStatus, 30000);
 </script>
 

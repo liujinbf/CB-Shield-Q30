@@ -6,15 +6,13 @@
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
-        <h1>📊 系统仪表盘</h1>
-        <p class="cb-subtitle">CB-Shield-Q30 · KJWS 网络安全</p>
+        <h1>系统仪表盘</h1>
+        <p class="cb-subtitle">CB-Shield-Q30 / KJWS</p>
     </div>
 
-    <!-- 状态卡片行 -->
     <div class="cb-cards-row">
-        <!-- CPU -->
         <div class="cb-card" id="card-cpu">
-            <div class="cb-card-icon">⚡</div>
+            <div class="cb-card-icon">CPU</div>
             <div class="cb-card-content">
                 <h3>CPU 使用率</h3>
                 <div class="cb-progress-ring">
@@ -23,11 +21,10 @@
             </div>
         </div>
 
-        <!-- 内存 -->
         <div class="cb-card" id="card-memory">
-            <div class="cb-card-icon">🧠</div>
+            <div class="cb-card-icon">MEM</div>
             <div class="cb-card-content">
-                <h3>内存使用</h3>
+                <h3>内存使用率</h3>
                 <div class="cb-progress-ring">
                     <span class="cb-value" id="mem-value">--</span><span class="cb-unit">%</span>
                 </div>
@@ -35,88 +32,83 @@
             </div>
         </div>
 
-        <!-- 运行时间 -->
         <div class="cb-card" id="card-uptime">
-            <div class="cb-card-icon">⏱️</div>
+            <div class="cb-card-icon">UP</div>
             <div class="cb-card-content">
-                <h3>运行时间</h3>
+                <h3>运行时长</h3>
                 <p class="cb-value-text" id="uptime-value">--</p>
             </div>
         </div>
 
-        <!-- 连接数 -->
         <div class="cb-card" id="card-connections">
-            <div class="cb-card-icon">🔗</div>
+            <div class="cb-card-icon">NET</div>
             <div class="cb-card-content">
-                <h3>活跃连接</h3>
+                <h3>连接追踪</h3>
                 <p class="cb-value-text" id="conn-value">--</p>
-                <p class="cb-detail" id="conn-detail">最大: --</p>
+                <p class="cb-detail" id="conn-detail">最大 --</p>
             </div>
         </div>
     </div>
 
-    <!-- 风控状态 -->
     <div class="cb-section">
-        <h2>🛡️ IP 风控状态</h2>
+        <h2>IP 风控状态</h2>
         <div class="cb-risk-panel" id="risk-panel">
             <div class="cb-risk-indicator" id="risk-indicator">
                 <div class="cb-risk-score" id="risk-score">--</div>
-                <div class="cb-risk-label" id="risk-label">检测中...</div>
+                <div class="cb-risk-label" id="risk-label">Loading...</div>
             </div>
             <div class="cb-risk-details">
                 <table class="cb-info-table">
-                    <tr><td>当前 IP</td><td id="risk-ip">--</td></tr>
-                    <tr><td>位置</td><td id="risk-location">--</td></tr>
+                    <tr><td>IP</td><td id="risk-ip">--</td></tr>
+                    <tr><td>Location</td><td id="risk-location">--</td></tr>
                     <tr><td>ISP</td><td id="risk-isp">--</td></tr>
-                    <tr><td>代理检测</td><td id="risk-proxy">--</td></tr>
-                    <tr><td>上次检测</td><td id="risk-time">--</td></tr>
-                    <tr><td>执行动作</td><td id="risk-action">--</td></tr>
+                    <tr><td>Proxy</td><td id="risk-proxy">--</td></tr>
+                    <tr><td>Check Time</td><td id="risk-time">--</td></tr>
+                    <tr><td>Action</td><td id="risk-action">--</td></tr>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- 网络概览 -->
     <div class="cb-section">
-        <h2>🌐 网络概览</h2>
+        <h2>网络概览</h2>
         <div class="cb-cards-row">
             <div class="cb-card cb-card-wide" id="card-wan">
                 <h3>WAN</h3>
                 <p class="cb-detail">IP: <span id="wan-ip">--</span></p>
-                <p class="cb-detail">↓ <span id="wan-rx">--</span> / ↑ <span id="wan-tx">--</span></p>
+                <p class="cb-detail">RX <span id="wan-rx">--</span> / TX <span id="wan-tx">--</span></p>
             </div>
             <div class="cb-card" id="card-office">
-                <h3>办公网络 (VLAN 10)</h3>
+                <h3>LAN</h3>
                 <p class="cb-detail">IP: <span id="office-ip">--</span></p>
-                <p class="cb-detail">↓ <span id="office-rx">--</span> / ↑ <span id="office-tx">--</span></p>
+                <p class="cb-detail">RX <span id="office-rx">--</span> / TX <span id="office-tx">--</span></p>
             </div>
             <div class="cb-card" id="card-guest">
-                <h3>访客网络 (VLAN 20)</h3>
+                <h3>SHOP1</h3>
                 <p class="cb-detail">IP: <span id="guest-ip">--</span></p>
-                <p class="cb-detail">↓ <span id="guest-rx">--</span> / ↑ <span id="guest-tx">--</span></p>
+                <p class="cb-detail">RX <span id="guest-rx">--</span> / TX <span id="guest-tx">--</span></p>
             </div>
             <div class="cb-card" id="card-ecom">
-                <h3>电商网络 (VLAN 30)</h3>
+                <h3>SHOP2</h3>
                 <p class="cb-detail">IP: <span id="ecom-ip">--</span></p>
-                <p class="cb-detail">↓ <span id="ecom-rx">--</span> / ↑ <span id="ecom-tx">--</span></p>
+                <p class="cb-detail">RX <span id="ecom-rx">--</span> / TX <span id="ecom-tx">--</span></p>
             </div>
         </div>
     </div>
 
-    <!-- 系统负载 -->
     <div class="cb-section">
-        <h2>📈 系统负载</h2>
+        <h2>系统负载</h2>
         <div class="cb-cards-row">
             <div class="cb-card">
-                <h3>1 分钟</h3>
+                <h3>1 min</h3>
                 <p class="cb-value-text" id="load-1">--</p>
             </div>
             <div class="cb-card">
-                <h3>5 分钟</h3>
+                <h3>5 min</h3>
                 <p class="cb-value-text" id="load-5">--</p>
             </div>
             <div class="cb-card">
-                <h3>15 分钟</h3>
+                <h3>15 min</h3>
                 <p class="cb-value-text" id="load-15">--</p>
             </div>
         </div>

@@ -5,35 +5,31 @@
 
 <div class="cb-dashboard">
     <div class="cb-page-header">
-        <h1>🌐 跨境隔离仓状态</h1>
-        <p class="cb-subtitle">独立商店环境及网络接口监控</p>
+        <h1>网络与多 WiFi 状态</h1>
+        <p class="cb-subtitle">隔离店铺网络实时监控</p>
     </div>
 
-    <!-- 基础接口状态 (WAN/LAN) -->
     <div class="cb-section">
-        <h2>📡 基础网络接口</h2>
+        <h2>基础接口</h2>
         <div class="cb-cards-row" id="iface-cards">
             <div class="cb-card cb-card-loading">
-                <p>加载中...</p>
+                <p>Loading...</p>
             </div>
         </div>
     </div>
 
-    <!-- 5 个隔离商店环境 -->
     <div class="cb-section">
-        <h2>🛍️ 独立商店隔离环境</h2>
+        <h2>店铺网络 (Shop1 - Shop5)</h2>
         <div class="cb-shop-grid" id="shop-cards">
-            <!-- 由 JS 动态渲染 -->
             <div class="cb-card cb-card-loading">
-                <p>加载中...</p>
+                <p>Loading...</p>
             </div>
         </div>
     </div>
 
-    <!-- 客户端数量汇总 -->
     <div class="cb-section">
         <div class="cb-mini-stats">
-            <p>👥 全局连接客户端总数: <strong id="total-clients">--</strong></p>
+            <p>Total clients: <strong id="total-clients">--</strong></p>
         </div>
     </div>
 </div>
@@ -71,20 +67,27 @@
         font-size: 0.9rem;
         color: rgba(255, 255, 255, 0.7);
     }
-    .cb-shop-info p { margin: 5px 0; }
-    
-    /* 简易开关样式 */
+    .cb-shop-info p {
+        margin: 5px 0;
+    }
     .cb-switch {
         position: relative;
         display: inline-block;
         width: 50px;
         height: 24px;
     }
-    .cb-switch input { opacity: 0; width: 0; height: 0; }
+    .cb-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
     .cb-slider {
         position: absolute;
         cursor: pointer;
-        top: 0; left: 0; right: 0; bottom: 0;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         background-color: #444;
         transition: .4s;
         border-radius: 24px;
@@ -92,15 +95,24 @@
     .cb-slider:before {
         position: absolute;
         content: "";
-        height: 18px; width: 18px;
-        left: 3px; bottom: 3px;
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
         background-color: white;
         transition: .4s;
         border-radius: 50%;
     }
-    input:checked + .cb-slider { background-color: #28a745; }
-    input:checked + .cb-slider:before { transform: translateX(26px); }
-    input:disabled + .cb-slider { opacity: 0.5; cursor: not-allowed; }
+    input:checked + .cb-slider {
+        background-color: #28a745;
+    }
+    input:checked + .cb-slider:before {
+        transform: translateX(26px);
+    }
+    input:disabled + .cb-slider {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 </style>
 
 <script>
@@ -108,7 +120,7 @@ var isToggling = false;
 
 function loadNetworkStatus() {
     if (isToggling) return;
-    
+
     fetch('/admin/cbshield/api/network')
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -118,7 +130,7 @@ function loadNetworkStatus() {
             if (clientsEl) clientsEl.textContent = data.total_clients || 0;
         })
         .catch(function(e) {
-            console.error('获取网络状态失败:', e);
+            console.error('failed to load network status:', e);
         });
 }
 
@@ -127,18 +139,18 @@ function renderInterfaceCards(interfaces) {
     if (!container) return;
 
     var html = '';
-    var nameMap = { 'wan': 'WAN 外网', 'lan': 'LAN 管理内网' };
+    var nameMap = { wan: 'WAN', lan: 'LAN' };
 
     for (var i = 0; i < interfaces.length; i++) {
         var iface = interfaces[i];
         var statusClass = iface.up ? 'cb-badge-success' : 'cb-badge-danger';
-        var statusText = iface.up ? '已连接' : '未连接';
+        var statusText = iface.up ? 'UP' : 'DOWN';
 
         html += '<div class="cb-card">';
         html += '<h3>' + (nameMap[iface.name] || iface.name) + '</h3>';
         html += '<p><span class="cb-badge ' + statusClass + '">' + statusText + '</span></p>';
         html += '<p class="cb-detail">IP: ' + (iface.ip || '--') + '</p>';
-        html += '<p class="cb-detail">速度: ↓ ' + (iface.rx_human || '--') + ' | ↑ ' + (iface.tx_human || '--') + '</p>';
+        html += '<p class="cb-detail">RX ' + (iface.rx_human || '--') + ' | TX ' + (iface.tx_human || '--') + '</p>';
         html += '</div>';
     }
     container.innerHTML = html;
@@ -156,17 +168,17 @@ function renderShopCards(shops) {
 
         html += '<div class="cb-shop-card ' + (isActive ? 'active' : '') + '">';
         html += '  <div class="cb-shop-header">';
-        html += '    <h3>商店环境 ' + shopIdx + '</h3>';
+        html += '    <h3>Shop ' + shopIdx + '</h3>';
         html += '    <label class="cb-switch">';
         html += '      <input type="checkbox" ' + (isActive ? 'checked' : '') + ' onchange="toggleShop(\'shop' + shopIdx + '\', this.checked)">';
         html += '      <span class="cb-slider"></span>';
         html += '    </label>';
         html += '  </div>';
         html += '  <div class="cb-shop-info">';
-        html += '    <p><strong>状态:</strong> ' + (isActive ? '<span style="color:#28a745">开启中</span>' : '<span style="color:#888">已禁用</span>') + '</p>';
-        html += '    <p><strong>SSID:</strong> ' + (shop.ssid || 'CB-Shop-' + shopIdx) + '</p>';
-        html += '    <p><strong>分配子网:</strong> ' + (shop.ip || '192.168.10' + shopIdx + '.1') + '</p>';
-        html += '    <p><strong>累计流量:</strong> ↓ ' + (shop.rx_human || '0 B') + ' | ↑ ' + (shop.tx_human || '0 B') + '</p>';
+        html += '    <p><strong>Status:</strong> ' + (isActive ? '<span style="color:#28a745">Enabled</span>' : '<span style="color:#888">Disabled</span>') + '</p>';
+        html += '    <p><strong>SSID:</strong> ' + (shop.ssid || ('CB-Shop-0' + shopIdx)) + '</p>';
+        html += '    <p><strong>IP:</strong> ' + (shop.ip || '--') + '</p>';
+        html += '    <p><strong>Traffic:</strong> RX ' + (shop.rx_human || '0 B') + ' | TX ' + (shop.tx_human || '0 B') + '</p>';
         html += '  </div>';
         html += '</div>';
     }
@@ -175,8 +187,6 @@ function renderShopCards(shops) {
 
 function toggleShop(shopId, enable) {
     isToggling = true;
-    
-    // 禁用所有开关防止重复提交
     var inputs = document.querySelectorAll('.cb-switch input');
     inputs.forEach(function(el) { el.disabled = true; });
 
@@ -190,14 +200,13 @@ function toggleShop(shopId, enable) {
         body: params
     })
     .then(function(r) { return r.json(); })
-    .then(function(data) {
+    .then(function() {
         setTimeout(function() {
             isToggling = false;
             loadNetworkStatus();
-        }, 1500); // 给后端一点 reload_config 的时间
+        }, 1200);
     })
-    .catch(function(e) {
-        alert('控制操作失败，请重试');
+    .catch(function() {
         isToggling = false;
         loadNetworkStatus();
     });
