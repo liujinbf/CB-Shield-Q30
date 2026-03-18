@@ -11,6 +11,7 @@ required_files=(
   "packages/cb-riskcontrol/files/cb-dns-guard.sh"
   "packages/cb-riskcontrol/files/cb-safe-upgrade.sh"
   "packages/cb-riskcontrol/files/cb-wizard.sh"
+  "packages/cb-riskcontrol/files/cb-openclash-setup.sh"
   "luci-theme-cbshield/luasrc/controller/cbshield/api.lua"
   "luci-theme-cbshield/luasrc/controller/cbshield/index.lua"
   "luci-theme-cbshield/luasrc/view/cbshield/dashboard.htm"
@@ -40,6 +41,8 @@ fi
 echo "[smoke] check javascript syntax"
 if command -v node >/dev/null 2>&1; then
   node --check luci-theme-cbshield/htdocs/luci-static/cbshield/js/dashboard.js
+  node -e 'const fs=require("fs"); const s=fs.readFileSync(process.argv[1], "utf8"); const m=s.match(/<script>([\s\S]*)<\/script>/); if (!m) process.exit(1); new Function(m[1]);' \
+    luci-theme-cbshield/luasrc/view/cbshield/wizard.htm
 fi
 
 echo "[smoke] check portal config json"

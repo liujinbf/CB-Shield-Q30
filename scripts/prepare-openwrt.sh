@@ -12,6 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROFILE_FILE="$REPO_DIR/profiles/${PROFILE}.config"
 
+bash "$SCRIPT_DIR/check-build-env.sh" prepare
+
 if [ ! -d "$OPENWRT_DIR" ]; then
   echo "openwrt dir not found: $OPENWRT_DIR"
   exit 1

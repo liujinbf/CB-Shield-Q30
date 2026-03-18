@@ -5,7 +5,7 @@
 <div class="cb-dashboard">
     <div class="cb-page-header">
         <h1>首次配置向导</h1>
-        <p class="cb-subtitle">P0 必填：管理员密码、时区、WAN 类型、办公 WiFi</p>
+        <p class="cb-subtitle">先完成管理密码、WAN、办公 WiFi，再决定是否启用 OpenClash 新手模式。</p>
     </div>
 
     <div class="cb-section">
@@ -13,16 +13,28 @@
         <div class="cb-mini-stats">
             <p>是否必填: <strong id="wiz-required">--</strong></p>
             <p>是否完成: <strong id="wiz-done">--</strong></p>
-            <p>是否需要改密: <strong id="wiz-need-pass">--</strong></p>
+            <p>是否需要修改密码: <strong id="wiz-need-pass">--</strong></p>
+            <p>OpenClash 是否已安装: <strong id="wiz-openclash-installed">--</strong></p>
+            <p>OpenClash 是否运行: <strong id="wiz-openclash-running">--</strong></p>
+            <p>订阅配置是否就绪: <strong id="wiz-openclash-ready">--</strong></p>
         </div>
     </div>
 
     <div class="cb-section">
-        <h2>向导参数</h2>
+        <h2>基础配置</h2>
         <div class="cb-form-panel">
-            <div class="cb-form-row"><label>管理员密码</label><input id="wiz-pass" type="password" class="cbi-input-password" style="min-width:260px;"></div>
-            <div class="cb-form-row"><label>时区值</label><input id="wiz-timezone" type="text" class="cbi-input-text" value="CST-8"></div>
-            <div class="cb-form-row"><label>时区名称</label><input id="wiz-zonename" type="text" class="cbi-input-text" value="Asia/Shanghai"></div>
+            <div class="cb-form-row">
+                <label>管理员密码</label>
+                <input id="wiz-pass" type="password" class="cbi-input-password" style="min-width:260px;">
+            </div>
+            <div class="cb-form-row">
+                <label>时区值</label>
+                <input id="wiz-timezone" type="text" class="cbi-input-text" value="CST-8">
+            </div>
+            <div class="cb-form-row">
+                <label>时区名称</label>
+                <input id="wiz-zonename" type="text" class="cbi-input-text" value="Asia/Shanghai">
+            </div>
             <div class="cb-form-row">
                 <label>WAN 类型</label>
                 <select id="wiz-wan-proto" class="cbi-input-select">
@@ -31,11 +43,76 @@
                     <option value="static">Static</option>
                 </select>
             </div>
-            <div class="cb-form-row"><label>PPPoE 用户名</label><input id="wiz-wan-user" type="text" class="cbi-input-text"></div>
-            <div class="cb-form-row"><label>PPPoE 密码</label><input id="wiz-wan-pass" type="password" class="cbi-input-password"></div>
-            <div class="cb-form-row"><label>办公 2.4G SSID</label><input id="wiz-ssid24" type="text" class="cbi-input-text" value="CB-Shield-Office"></div>
-            <div class="cb-form-row"><label>办公 5G SSID</label><input id="wiz-ssid5" type="text" class="cbi-input-text" value="CB-Shield-Office-5G"></div>
-            <div class="cb-form-row"><label>办公 WiFi 密码</label><input id="wiz-wifi-key" type="password" class="cbi-input-password" value="CBShield@Office2024"></div>
+            <div class="cb-form-row">
+                <label>PPPoE 用户名</label>
+                <input id="wiz-wan-user" type="text" class="cbi-input-text">
+            </div>
+            <div class="cb-form-row">
+                <label>PPPoE 密码</label>
+                <input id="wiz-wan-pass" type="password" class="cbi-input-password">
+            </div>
+            <div class="cb-form-row">
+                <label>办公 2.4G SSID</label>
+                <input id="wiz-ssid24" type="text" class="cbi-input-text" value="CB-Shield-Office">
+            </div>
+            <div class="cb-form-row">
+                <label>办公 5G SSID</label>
+                <input id="wiz-ssid5" type="text" class="cbi-input-text" value="CB-Shield-Office-5G">
+            </div>
+            <div class="cb-form-row">
+                <label>办公 WiFi 密码</label>
+                <input id="wiz-wifi-key" type="password" class="cbi-input-password" value="CBShield@Office2024">
+            </div>
+        </div>
+    </div>
+
+    <div class="cb-section">
+        <h2>代理设置</h2>
+        <div class="cb-form-panel">
+            <div class="cb-form-row">
+                <label>启用代理</label>
+                <input id="wiz-proxy-enabled" type="checkbox">
+            </div>
+            <div class="cb-form-row">
+                <label>代理方案</label>
+                <select id="wiz-proxy-type" class="cbi-input-select">
+                    <option value="none">暂不启用</option>
+                    <option value="openclash">OpenClash 新手模式</option>
+                </select>
+            </div>
+            <div id="openclash-fields">
+                <div class="cb-form-row">
+                    <label>订阅链接</label>
+                    <input id="wiz-openclash-subscription" type="text" class="cbi-input-text" placeholder="https://example.com/subscription">
+                </div>
+                <div class="cb-form-row">
+                    <label>配置别名</label>
+                    <input id="wiz-openclash-profile" type="text" class="cbi-input-text" value="cbshield">
+                </div>
+                <div class="cb-form-row">
+                    <label>代理模式</label>
+                    <select id="wiz-openclash-mode" class="cbi-input-select">
+                        <option value="rule">规则模式</option>
+                        <option value="global">全局代理</option>
+                        <option value="direct">全局直连</option>
+                    </select>
+                </div>
+                <div class="cb-form-row">
+                    <label>DNS/运行模式</label>
+                    <select id="wiz-openclash-operation" class="cbi-input-select">
+                        <option value="fake-ip">Fake-IP</option>
+                        <option value="redir-host">Redir-Host</option>
+                    </select>
+                </div>
+                <div class="cb-form-row">
+                    <label>说明</label>
+                    <div>
+                        <p class="cb-subtitle" style="margin:0;">
+                            这一步只要求订阅链接。向导会自动写入 OpenClash、拉取配置并尝试启动服务。
+                        </p>
+                    </div>
+                </div>
+            </div>
             <div class="cb-form-row">
                 <button class="cb-btn cb-btn-primary" onclick="applyWizard()">保存并应用</button>
                 <button class="cb-btn cb-btn-secondary" onclick="loadWizardStatus()">刷新状态</button>
@@ -50,22 +127,61 @@ function setText(id, val) {
     if (el) el.textContent = val;
 }
 
+function yesNo(value) {
+    return value ? "是" : "否";
+}
+
+function toggleProxyFields() {
+    var enabled = document.getElementById("wiz-proxy-enabled").checked;
+    var type = document.getElementById("wiz-proxy-type").value;
+    var box = document.getElementById("openclash-fields");
+    box.style.display = enabled && type === "openclash" ? "block" : "none";
+}
+
+function fillWizardForm(data) {
+    document.getElementById("wiz-proxy-enabled").checked = !!data.proxy_enabled;
+    document.getElementById("wiz-proxy-type").value = data.proxy_type || "none";
+    document.getElementById("wiz-openclash-subscription").value = data.openclash_subscription || "";
+    document.getElementById("wiz-openclash-profile").value = data.openclash_profile || "cbshield";
+    document.getElementById("wiz-openclash-mode").value = data.openclash_mode || "rule";
+    document.getElementById("wiz-openclash-operation").value = data.openclash_operation_mode || "fake-ip";
+    toggleProxyFields();
+}
+
 function loadWizardStatus() {
     fetch("/cgi-bin/luci/admin/cbshield/api/wizard_status")
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            setText("wiz-required", data.required ? "是" : "否");
-            setText("wiz-done", data.done ? "是" : "否");
-            setText("wiz-need-pass", data.need_password_change ? "是" : "否");
+            setText("wiz-required", yesNo(data.required));
+            setText("wiz-done", yesNo(data.done));
+            setText("wiz-need-pass", yesNo(data.need_password_change));
+            setText("wiz-openclash-installed", yesNo(data.openclash_installed));
+            setText("wiz-openclash-running", yesNo(data.openclash_running));
+            setText("wiz-openclash-ready", yesNo(data.openclash_config_ready));
+            fillWizardForm(data);
         })
-        .catch(function(e) { console.error("wizard status failed", e); });
+        .catch(function(e) {
+            console.error("wizard status failed", e);
+        });
 }
 
 function applyWizard() {
     var password = document.getElementById("wiz-pass").value;
+    var proxyEnabled = document.getElementById("wiz-proxy-enabled").checked;
+    var proxyType = document.getElementById("wiz-proxy-type").value;
+    var openclashSubscription = document.getElementById("wiz-openclash-subscription").value.trim();
+    var openclashProfile = document.getElementById("wiz-openclash-profile").value.trim() || "cbshield";
+
     if (!password || password.length < 8) {
         alert("管理员密码不能为空，且长度至少 8 位。");
         return;
+    }
+
+    if (proxyEnabled && proxyType === "openclash") {
+        if (!/^https?:\/\//.test(openclashSubscription)) {
+            alert("OpenClash 新手模式要求填写有效的 HTTP/HTTPS 订阅链接。");
+            return;
+        }
     }
 
     var params = new URLSearchParams();
@@ -78,6 +194,12 @@ function applyWizard() {
     params.append("office_ssid", document.getElementById("wiz-ssid24").value);
     params.append("office5_ssid", document.getElementById("wiz-ssid5").value);
     params.append("office_key", document.getElementById("wiz-wifi-key").value);
+    params.append("proxy_enabled", proxyEnabled ? "1" : "0");
+    params.append("proxy_type", proxyType);
+    params.append("openclash_subscription", openclashSubscription);
+    params.append("openclash_profile", openclashProfile);
+    params.append("openclash_mode", document.getElementById("wiz-openclash-mode").value);
+    params.append("openclash_operation_mode", document.getElementById("wiz-openclash-operation").value);
 
     fetch("/cgi-bin/luci/admin/cbshield/api/wizard_apply", {
         method: "POST",
@@ -85,7 +207,11 @@ function applyWizard() {
         body: params
     }).then(function(r) { return r.json(); })
       .then(function(data) {
-          alert(data.status === "ok" ? "向导应用成功" : ("向导失败: " + JSON.stringify(data)));
+          if (data.status === "ok") {
+              alert("向导应用成功。");
+          } else {
+              alert("向导失败: " + JSON.stringify(data));
+          }
           loadWizardStatus();
       })
       .catch(function(e) {
@@ -93,7 +219,11 @@ function applyWizard() {
       });
 }
 
-document.addEventListener("DOMContentLoaded", loadWizardStatus);
+document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("wiz-proxy-enabled").addEventListener("change", toggleProxyFields);
+    document.getElementById("wiz-proxy-type").addEventListener("change", toggleProxyFields);
+    loadWizardStatus();
+});
 </script>
 
 <%+footer%>

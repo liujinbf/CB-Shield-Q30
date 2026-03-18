@@ -348,6 +348,29 @@ end
 function action_wizard_status()
     local raw = sys.exec("/usr/bin/cb-wizard status 2>/dev/null")
     local data = json.parse(raw) or parse_json_file("/tmp/cb-wizard.json", { required = true, done = false })
+    data.proxy_enabled = trim(sys.exec("uci -q get cb-wizard.main.proxy_enabled")) == "1"
+    data.proxy_type = trim(sys.exec("uci -q get cb-wizard.main.proxy_type"))
+    data.openclash_subscription = trim(sys.exec("uci -q get cb-wizard.main.openclash_subscription"))
+    data.openclash_profile = trim(sys.exec("uci -q get cb-wizard.main.openclash_profile"))
+    data.openclash_mode = trim(sys.exec("uci -q get cb-wizard.main.openclash_mode"))
+    data.openclash_operation_mode = trim(sys.exec("uci -q get cb-wizard.main.openclash_operation_mode"))
+    data.openclash_installed = service_exists("openclash")
+    data.openclash_running = service_running("openclash")
+    data.openclash_config_ready = trim(sys.exec("uci -q get openclash.config.config_path")) ~= ""
+
+    if data.proxy_type == "" then
+        data.proxy_type = "none"
+    end
+    if data.openclash_profile == "" then
+        data.openclash_profile = "cbshield"
+    end
+    if data.openclash_mode == "" then
+        data.openclash_mode = "rule"
+    end
+    if data.openclash_operation_mode == "" then
+        data.openclash_operation_mode = "fake-ip"
+    end
+
     write_json(data)
 end
 
@@ -365,11 +388,18 @@ function action_wizard_apply()
     local office_ssid = http.formvalue("office_ssid") or "CB-Shield-Office"
     local office_key = http.formvalue("office_key") or "CBShield@Office2024"
     local office5_ssid = http.formvalue("office5_ssid") or "CB-Shield-Office-5G"
+    local proxy_enabled = http.formvalue("proxy_enabled") or "0"
+    local proxy_type = http.formvalue("proxy_type") or "none"
+    local openclash_subscription = http.formvalue("openclash_subscription") or ""
+    local openclash_profile = http.formvalue("openclash_profile") or "cbshield"
+    local openclash_mode = http.formvalue("openclash_mode") or "rule"
+    local openclash_operation_mode = http.formvalue("openclash_operation_mode") or "fake-ip"
 
     local cmd = string.format(
-        "/usr/bin/cb-wizard apply %s %s %s %s %s %s %s %s %s 2>/dev/null",
+        "/usr/bin/cb-wizard apply %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s 2>/dev/null",
         shq(password), shq(timezone), shq(zonename), shq(wan_proto), shq(wan_user), shq(wan_pass),
-        shq(office_ssid), shq(office_key), shq(office5_ssid)
+        shq(office_ssid), shq(office_key), shq(office5_ssid), shq(proxy_enabled), shq(proxy_type),
+        shq(openclash_subscription), shq(openclash_profile), shq(openclash_mode), shq(openclash_operation_mode)
     )
     local out = sys.exec(cmd)
     write_json(json.parse(out) or { status = "error", message = "wizard_apply_failed" })

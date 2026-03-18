@@ -51,6 +51,13 @@ apply_wizard() {
     local office_ssid="$7"
     local office_key="$8"
     local office5_ssid="$9"
+    local proxy_enabled="${10:-0}"
+    local proxy_type="${11:-none}"
+    local proxy_subscription="${12:-}"
+    local proxy_profile="${13:-cbshield}"
+    local proxy_mode="${14:-rule}"
+    local proxy_operation="${15:-fake-ip}"
+    local proxy_result
 
     [ -n "$pass" ] || {
         echo '{"status":"error","message":"password_required"}'
@@ -88,6 +95,47 @@ apply_wizard() {
     [ -n "$office5_ssid" ] && uci -q set wireless.office_5g.ssid="$office5_ssid"
     uci commit wireless
 
+    case "$proxy_enabled" in
+        0|1) ;;
+        *) proxy_enabled="0" ;;
+    esac
+    [ -n "$proxy_type" ] || proxy_type="none"
+
+    case "$proxy_type" in
+        none)
+            uci -q set cb-wizard.main.proxy_enabled='0'
+            uci -q set cb-wizard.main.proxy_type='none'
+            uci -q set cb-wizard.main.openclash_subscription=''
+            uci -q set cb-wizard.main.openclash_profile='cbshield'
+            uci -q set cb-wizard.main.openclash_mode='rule'
+            uci -q set cb-wizard.main.openclash_operation_mode='fake-ip'
+            uci commit cb-wizard
+            if [ -x /etc/init.d/openclash ]; then
+                uci -q set openclash.config.enable='0'
+                uci commit openclash
+                /etc/init.d/openclash disable >/dev/null 2>&1 || true
+                /etc/init.d/openclash stop >/dev/null 2>&1 || true
+            fi
+            ;;
+        openclash)
+            if [ ! -x /usr/bin/cb-openclash-setup ]; then
+                echo '{"status":"error","message":"openclash_helper_missing"}'
+                return 1
+            fi
+            proxy_result="$(/usr/bin/cb-openclash-setup apply \
+                "$proxy_enabled" "$proxy_type" "$proxy_subscription" "$proxy_profile" \
+                "$proxy_mode" "$proxy_operation" 2>/dev/null)"
+            echo "$proxy_result" | grep -q '"status":"ok"' || {
+                printf '%s\n' "$proxy_result"
+                return 1
+            }
+            ;;
+        *)
+            echo '{"status":"error","message":"unsupported_proxy_type"}'
+            return 1
+            ;;
+    esac
+
     /etc/init.d/network restart >/dev/null 2>&1
     wifi reload >/dev/null 2>&1
 
@@ -123,7 +171,7 @@ case "$1" in
         echo '{"status":"ok","required":true}'
         ;;
     *)
-        echo "usage: $0 {status|apply <pass> <timezone> <zonename> <wan_proto> <wan_user> <wan_pass> <office_ssid> <office_key> <office5_ssid>|force}"
+        echo "usage: $0 {status|apply <pass> <timezone> <zonename> <wan_proto> <wan_user> <wan_pass> <office_ssid> <office_key> <office5_ssid> [proxy_enabled proxy_type proxy_subscription proxy_profile proxy_mode proxy_operation]|force}"
         exit 1
         ;;
 esac

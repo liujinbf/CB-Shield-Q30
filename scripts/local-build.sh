@@ -8,6 +8,8 @@ OPENWRT_DIR="${OPENWRT_DIR:-$WORK_ROOT/openwrt}"
 REPO_URL="${REPO_URL:-https://github.com/openwrt/openwrt.git}"
 REPO_BRANCH="${REPO_BRANCH:-openwrt-23.05}"
 
+bash "$REPO_DIR/scripts/check-build-env.sh" build
+
 mkdir -p "$WORK_ROOT"
 
 if [ ! -d "$OPENWRT_DIR/.git" ]; then

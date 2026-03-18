@@ -30,6 +30,7 @@ define Package/cb-riskcontrol/install
 	$(INSTALL_BIN) ./files/cb-dns-guard.sh $(1)/usr/bin/cb-dns-guard
 	$(INSTALL_BIN) ./files/cb-safe-upgrade.sh $(1)/usr/bin/cb-safe-upgrade
 	$(INSTALL_BIN) ./files/cb-wizard.sh $(1)/usr/bin/cb-wizard
+	$(INSTALL_BIN) ./files/cb-openclash-setup.sh $(1)/usr/bin/cb-openclash-setup
 
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/cb-riskcontrol.init $(1)/etc/init.d/cb-riskcontrol
