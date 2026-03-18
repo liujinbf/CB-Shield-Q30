@@ -92,7 +92,7 @@ def resolve_cookie_header(args: argparse.Namespace, repo_root: Path) -> str:
         return args.cookie_header.strip()
     if args.cookie_file:
         cookie_path = (repo_root / args.cookie_file).resolve()
-        return cookie_path.read_text(encoding="utf-8").strip()
+        return cookie_path.read_text(encoding="utf-8-sig").strip()
     raise SystemExit("必须提供 --cookie-header 或 --cookie-file")
 
 
