@@ -4,7 +4,6 @@
 src-git packages https://git.openwrt.org/feed/packages.git;openwrt-23.05
 src-git luci https://git.openwrt.org/project/luci.git;openwrt-23.05
 src-git routing https://git.openwrt.org/feed/routing.git;openwrt-23.05
-src-git telephony https://git.openwrt.org/feed/telephony.git;openwrt-23.05
 
 # Passwall（由 diy-part1.sh 做本地 src-link 覆盖）
 src-git passwall https://github.com/openwrt-passwall/openwrt-passwall.git;main
