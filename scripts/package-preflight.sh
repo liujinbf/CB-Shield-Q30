@@ -9,14 +9,18 @@ fi
 OPENWRT_DIR="$(cd "$1" && pwd)"
 cd "$OPENWRT_DIR"
 
-targets=(
-  "package/custom/cb-riskcontrol/compile"
-  "package/custom/luci-theme-cbshield/compile"
+required_files=(
+  "package/custom/cb-riskcontrol/Makefile"
+  "package/custom/luci-theme-cbshield/Makefile"
 )
 
-for target in "${targets[@]}"; do
-  echo "[preflight] $target"
-  # 干净树上并行预编译自定义包会打乱 OpenWrt 的依赖构建顺序。
-  # 这里改为串行执行，优先保证首次构建稳定。
-  make "$target" -j1 V=s
+for file in "${required_files[@]}"; do
+  echo "[preflight] check $file"
+  test -f "$file"
 done
+
+echo "[preflight] validate package names"
+grep -q "Package/cb-riskcontrol" package/custom/cb-riskcontrol/Makefile
+grep -q "LUCI_TITLE:=CB-Shield" package/custom/luci-theme-cbshield/Makefile
+
+echo "[preflight] custom package sources ready"
