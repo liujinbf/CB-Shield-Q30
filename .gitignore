@@ -2,4 +2,7 @@ logs/
 artifacts/
 openwrt/
 Kwrt-src/
+.work/
+temp-upload/
+temp-upload.zip
 *.log

@@ -1,0 +1,52 @@
+{
+  "name": "CB-Shield Q30 Pro OpenClash",
+  "target": "mediatek/filogic",
+  "profile": "jcg_q30-pro",
+  "theme": "argon",
+  "webserver": "nginx",
+  "filesystem": "squashfs",
+  "rootfs_size_mb": 1004,
+  "efi": "efi",
+  "packages": [
+    "luci-theme-argon",
+    "luci-nginx",
+    "curl",
+    "ca-bundle",
+    "ca-certificates",
+    "luci-app-openclash"
+  ],
+  "defaults_file": ".work/cbshield-openwrtai-defaults.sh",
+  "overlay_file": ".work/cbshield-openwrtai-overlay.tgz",
+  "form_defaults": {
+    "models": "JCG Q30 PRO",
+    "theme": "argon",
+    "webserver": "nginx",
+    "kernel_v": "6.12.y",
+    "fsys": "squashfs",
+    "save": true,
+    "ipv6": true,
+    "dhcp": true,
+    "efi": true,
+    "passwall": false,
+    "openclash": true
+  },
+  "site_optional_features": [
+    {
+      "name": "Passwall",
+      "field": "passwall",
+      "enabled": false,
+      "notes": "不要与 OpenClash 同时启用。"
+    },
+    {
+      "name": "OpenClash",
+      "field": "openclash",
+      "enabled": true,
+      "notes": "主代理栈固定为 OpenClash。"
+    }
+  ],
+  "notes": [
+    "适合以 OpenClash 作为主代理面板的版本。",
+    "UI、Portal 和 cb-* 脚本通过 overlay_file 注入。",
+    "默认首页和服务 enable 通过 defaults_file 注入。"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "name": "CB-Shield Q30 Pro",
+  "target": "mediatek/filogic",
+  "profile": "jcg_q30-pro",
+  "theme": "argon",
+  "webserver": "nginx",
+  "filesystem": "squashfs",
+  "rootfs_size_mb": 1004,
+  "efi": "efi",
+  "packages": [
+    "luci-theme-argon",
+    "luci-nginx",
+    "curl",
+    "ca-bundle",
+    "ca-certificates"
+  ],
+  "defaults_file": ".work/cbshield-openwrtai-defaults.sh",
+  "overlay_file": ".work/cbshield-openwrtai-overlay.tgz",
+  "form_defaults": {
+    "models": "JCG Q30 PRO",
+    "theme": "argon",
+    "webserver": "nginx",
+    "kernel_v": "6.12.y",
+    "fsys": "squashfs",
+    "save": true,
+    "ipv6": true,
+    "dhcp": true,
+    "efi": true
+  },
+  "site_optional_features": [
+    {
+      "name": "Passwall",
+      "field": "passwall",
+      "enabled": false,
+      "notes": "如果主代理栈选择 Passwall，则在网站勾选它。"
+    },
+    {
+      "name": "OpenClash",
+      "field": "openclash",
+      "enabled": false,
+      "notes": "如果主代理栈选择 OpenClash，则在网站勾选它。"
+    }
+  ],
+  "notes": [
+    "UI、Portal 和 cb-* 脚本通过 overlay_file 注入。",
+    "默认首页和服务 enable 通过 defaults_file 注入。",
+    "不要同时启用 Passwall 和 OpenClash，按实际方案二选一。"
+  ]
+}
