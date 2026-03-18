@@ -11,6 +11,7 @@ PROFILE="$2"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROFILE_FILE="$REPO_DIR/profiles/${PROFILE}.config"
+SOURCE_KIND="${CB_SOURCE_KIND:-openwrt}"
 
 bash "$SCRIPT_DIR/check-build-env.sh" prepare
 
@@ -26,7 +27,11 @@ fi
 
 export GITHUB_WORKSPACE="$REPO_DIR"
 
-cp "$REPO_DIR/feeds.conf.default" "$OPENWRT_DIR/feeds.conf.default"
+if [ "$SOURCE_KIND" = "kwrt" ]; then
+  echo "[prepare] keep source feeds.conf.default from Kwrt base"
+else
+  cp "$REPO_DIR/feeds.conf.default" "$OPENWRT_DIR/feeds.conf.default"
+fi
 
 refresh_feeds() {
   local attempt
@@ -67,7 +72,11 @@ refresh_feeds() {
 }
 
 cd "$OPENWRT_DIR"
-bash "$REPO_DIR/scripts/diy-part1.sh"
+if [ "$SOURCE_KIND" = "kwrt" ]; then
+  echo "[prepare] skip diy-part1 on Kwrt base"
+else
+  bash "$REPO_DIR/scripts/diy-part1.sh"
+fi
 refresh_feeds
 ./scripts/feeds install -a
 bash "$REPO_DIR/scripts/diy-part2.sh"

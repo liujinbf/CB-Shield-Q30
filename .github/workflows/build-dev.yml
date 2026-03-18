@@ -17,10 +17,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REPO_URL: https://github.com/openwrt/openwrt.git
-  REPO_BRANCH: openwrt-23.05
+  REPO_URL: https://github.com/kiddin9/Kwrt.git
+  REPO_BRANCH: 25.12
   TZ: Asia/Shanghai
   PROFILE: stable
+  CB_SOURCE_KIND: kwrt
+  CB_SAFE_BASELINE: 1
 
 jobs:
   build-dev:
@@ -86,7 +88,7 @@ jobs:
             /workdir/openwrt/staging_dir/host
             /workdir/openwrt/staging_dir/hostpkg
             /workdir/openwrt/staging_dir/toolchain-*
-          key: ${{ runner.os }}-${{ env.PROFILE }}-${{ hashFiles('.config', 'profiles/dev.config', 'feeds.conf.default', 'scripts/diy-part1.sh', 'scripts/diy-part2.sh') }}
+          key: ${{ runner.os }}-${{ env.PROFILE }}-${{ env.REPO_BRANCH }}-${{ hashFiles('.config', 'profiles/stable.config', 'feeds.conf.default', 'scripts/diy-part1.sh', 'scripts/diy-part2.sh', 'scripts/prepare-openwrt.sh') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.PROFILE }}-
 
@@ -123,7 +125,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: CB-Shield-Q30-stable-${{ github.sha }}
+          name: CB-Shield-Q30-kwrt-safe-${{ github.sha }}
           path: artifacts/stable
 
       - name: Cleanup
