@@ -113,10 +113,22 @@ jobs:
       - name: Collect Stable Artifacts
         run: |
           OUT_DIR="$GITHUB_WORKSPACE/artifacts/stable"
+          TARGET_DIR="$(find /workdir/openwrt/bin/targets -mindepth 2 -maxdepth 2 -type d | head -n1)"
           rm -rf "$OUT_DIR"
           mkdir -p "$OUT_DIR"
-          find /workdir/openwrt/bin/targets -type f \( -name "*jcg_q30-pro*factory.bin" -o -name "*jcg_q30-pro*sysupgrade.bin" -o -name "*jcg_q30-pro*.manifest" \) -exec cp -f {} "$OUT_DIR/" \;
+          find "$TARGET_DIR" -maxdepth 1 -type f \( -iname "*q30*factory*.bin" -o -iname "*q30*sysupgrade*.bin" \) -exec cp -f {} "$OUT_DIR/" \;
+          find "$TARGET_DIR" -maxdepth 1 -type f -name "*.manifest" -exec cp -f {} "$OUT_DIR/" \;
           cd "$OUT_DIR"
+          if ! ls *.bin >/dev/null 2>&1; then
+            echo "collect failed: no q30 firmware images found under $TARGET_DIR"
+            find "$TARGET_DIR" -maxdepth 1 -type f -printf '%f\n' | sort
+            exit 1
+          fi
+          if ! ls *.manifest >/dev/null 2>&1; then
+            echo "collect failed: no manifest found under $TARGET_DIR"
+            find "$TARGET_DIR" -maxdepth 1 -type f -printf '%f\n' | sort
+            exit 1
+          fi
           ls *.manifest >/dev/null
           grep -q '^cb-riskcontrol ' *.manifest
           grep -q '^luci-theme-cbshield ' *.manifest
