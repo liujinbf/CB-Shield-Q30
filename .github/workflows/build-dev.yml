@@ -133,6 +133,12 @@ jobs:
           grep -q '^cb-riskcontrol ' *.manifest
           grep -q '^luci-theme-cbshield ' *.manifest
           grep -q '^kmod-mt7915e ' *.manifest
+          factory_image="$(ls *factory*.bin | head -n1)"
+          factory_size="$(stat -c '%s' "$factory_image")"
+          if [ "$factory_size" -lt 60000000 ]; then
+            echo "collect failed: factory image too small for q30 recovery compatibility: $factory_image ($factory_size bytes)"
+            exit 1
+          fi
           sha256sum *.bin > SHA256SUMS
 
       - name: Upload Artifacts
