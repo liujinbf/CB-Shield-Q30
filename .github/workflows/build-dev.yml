@@ -17,12 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REPO_URL: https://github.com/kiddin9/Kwrt.git
-  REPO_BRANCH: 25.12
+  REPO_URL: https://github.com/openwrt/openwrt.git
+  REPO_BRANCH: openwrt-23.05
   TZ: Asia/Shanghai
   PROFILE: stable
-  CB_SOURCE_KIND: kwrt
-  CB_SAFE_BASELINE: 1
 
 jobs:
   build-dev:
@@ -119,14 +117,16 @@ jobs:
           mkdir -p "$OUT_DIR"
           find /workdir/openwrt/bin/targets -type f \( -name "*jcg_q30-pro*factory.bin" -o -name "*jcg_q30-pro*sysupgrade.bin" -o -name "*jcg_q30-pro*.manifest" \) -exec cp -f {} "$OUT_DIR/" \;
           cd "$OUT_DIR"
-          ls *.bin >/dev/null
+          ls *.manifest >/dev/null
+          grep -q '^cb-riskcontrol ' *.manifest
+          grep -q '^luci-theme-cbshield ' *.manifest
           grep -q '^kmod-mt7915e ' *.manifest
           sha256sum *.bin > SHA256SUMS
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: CB-Shield-Q30-kwrt-safe-${{ github.sha }}
+          name: CB-Shield-Q30-branch-${{ github.sha }}
           path: artifacts/stable
 
       - name: Cleanup

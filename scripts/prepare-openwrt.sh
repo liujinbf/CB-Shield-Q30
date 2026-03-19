@@ -20,6 +20,11 @@ if [ ! -d "$OPENWRT_DIR" ]; then
   exit 1
 fi
 
+if [ ! -x "$OPENWRT_DIR/scripts/feeds" ]; then
+  echo "openwrt buildroot invalid: missing $OPENWRT_DIR/scripts/feeds"
+  exit 1
+fi
+
 if [ ! -f "$PROFILE_FILE" ]; then
   echo "profile file not found: $PROFILE_FILE"
   exit 1
