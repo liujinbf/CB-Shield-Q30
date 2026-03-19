@@ -1,17 +1,51 @@
 --- a/target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 +++ b/target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
-@@ -97,6 +97,10 @@
- 		spi-max-frequency = <52000000>;
+@@ -20,11 +20,13 @@
+ 	};
+ 
+ 	chosen {
++		rootdisk = <&ubi_rootdisk>;
+ 		stdout-path = "serial0:115200n8";
+ 	};
+ 
+-	memory {
++	memory@40000000 {
+ 		reg = <0 0x40000000 0 0x10000000>;
++		device_type = "memory";
+ 	};
+ 
+ 	gpio-keys {
+@@ -98,6 +100,10 @@
  		spi-tx-bus-width = <4>;
  		spi-rx-bus-width = <4>;
-+
+ 
 +		mediatek,nmbm;
 +		mediatek,bmt-max-ratio = <1>;
 +		mediatek,bmt-max-reserved-blocks = <64>;
- 
++
  		partitions {
  			compatible = "fixed-partitions";
-@@ -123,12 +127,11 @@
+ 			#address-cells = <1>;
+@@ -118,17 +124,37 @@
+ 				label = "Factory";
+ 				reg = <0x0180000 0x0200000>;
+ 				read-only;
++
++				nvmem-layout {
++					compatible = "fixed-layout";
++					#address-cells = <1>;
++					#size-cells = <1>;
++
++					macaddr_wan: macaddr@a0024 {
++						reg = <0xa0024 0x6>;
++					};
++
++					macaddr_lan: macaddr@a002a {
++						reg = <0xa002a 0x6>;
++					};
++				};
+ 			};
+ 
  			partition@380000 {
  				label = "fip";
  				reg = <0x0380000 0x0200000>;
@@ -22,6 +56,30 @@
  				label = "ubi";
 -				reg = <0x0580000 0x7000000>;
 +				reg = <0x0580000 0x6e80000>;
++				compatible = "linux,ubi";
++
++				volumes {
++					ubi_rootdisk: ubi-volume-fit {
++						volname = "fit";
++					};
++				};
  			};
  		};
  	};
+@@ -210,16 +236,3 @@
+ 	mediatek,mtd-eeprom = <&factory 0x0>;
+ };
+ 
+-&factory {
+-	compatible = "nvmem-cells";
+-	#address-cells = <1>;
+-	#size-cells = <1>;
+-
+-	macaddr_wan: macaddr@a0024 {
+-		reg = <0xa0024 0x6>;
+-	};
+-
+-	macaddr_lan: macaddr@a002a {
+-		reg = <0xa002a 0x6>;
+-	};
+-};

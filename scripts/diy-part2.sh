@@ -38,6 +38,42 @@ apply_repo_patch() {
     exit 1
 }
 
+rewrite_q30_image_recipe() {
+    python3 - <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path("target/linux/mediatek/image/filogic.mk")
+text = path.read_text(encoding="utf-8")
+pattern = re.compile(
+    r"define Device/jcg_q30-pro\n.*?^endef\nTARGET_DEVICES \+= jcg_q30-pro\n",
+    re.S | re.M,
+)
+replacement = """define Device/jcg_q30-pro
+  DEVICE_VENDOR := JCG
+  DEVICE_MODEL := Q30 PRO
+  DEVICE_DTS := mt7981b-jcg-q30-pro
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 114816k
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += jcg_q30-pro
+"""
+updated, count = pattern.subn(replacement, text, count=1)
+if count != 1:
+    sys.exit(">>> Unable to rewrite jcg_q30-pro image recipe")
+path.write_text(updated, encoding="utf-8")
+PY
+}
+
 # Copy custom packages
 sync_dir "$GITHUB_WORKSPACE/luci-theme-cbshield" package/custom/luci-theme-cbshield
 sync_dir "$GITHUB_WORKSPACE/packages/cb-riskcontrol" package/custom/cb-riskcontrol
@@ -72,9 +108,9 @@ EOF
     # Remove fit0 bootarg for third-party U-Boot
     find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
 
-    # Apply Q30 board patch and keep the image recipe aligned with the known-good device definition.
+    # Apply Q30 board patch and rewrite the image recipe in-place to avoid patch context drift.
     apply_repo_patch "$GITHUB_WORKSPACE/patches/mediatek/09-jcg-q30-pro-dts.patch"
-    apply_repo_patch "$GITHUB_WORKSPACE/patches/mediatek/10-jcg-q30-pro-image.patch"
+    rewrite_q30_image_recipe
 
     # Keep Wi-Fi enabled by default
     sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || true
@@ -84,6 +120,10 @@ fi
 grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware'
 grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'IMAGE/factory.bin := append-ubi'
 grep -q 'mediatek,mtd-eeprom = <&factory 0x0>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+grep -q 'rootdisk = <&ubi_rootdisk>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+grep -q 'compatible = "linux,ubi";' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+grep -q 'volname = "fit";' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+grep -q 'compatible = "fixed-layout";' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 grep -A3 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | grep -q 'ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan'
 grep -A5 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac | grep -q 'get_mac_label'
 
