@@ -74,6 +74,14 @@ path.write_text(updated, encoding="utf-8")
 PY
 }
 
+apply_kwrt_q30_boot_compat() {
+    find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec \
+        sed -i -E \
+            -e 's/ ?root=\/dev\/fit0 rootwait//' \
+            -e '/rootdisk =/d' \
+            -e '/bootargs.* = ""/d' {} +
+}
+
 # Copy custom packages
 sync_dir "$GITHUB_WORKSPACE/luci-theme-cbshield" package/custom/luci-theme-cbshield
 sync_dir "$GITHUB_WORKSPACE/packages/cb-riskcontrol" package/custom/cb-riskcontrol
@@ -105,8 +113,8 @@ else
  -----------------------------------------------------
 EOF
 
-    # Remove fit0 bootarg for third-party U-Boot
-    find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
+    # Match the working Kwrt Q30 boot chain for third-party recovery U-Boot.
+    apply_kwrt_q30_boot_compat
 
     # Apply Q30 board patch and rewrite the image recipe in-place to avoid patch context drift.
     apply_repo_patch "$GITHUB_WORKSPACE/patches/mediatek/09-jcg-q30-pro-dts.patch"
@@ -120,10 +128,12 @@ fi
 grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware'
 grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'IMAGE/factory.bin := append-ubi'
 grep -q 'mediatek,mtd-eeprom = <&factory 0x0>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
-grep -q 'rootdisk = <&ubi_rootdisk>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 grep -q 'compatible = "linux,ubi";' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 grep -q 'volname = "fit";' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 grep -q 'compatible = "fixed-layout";' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+grep -q 'mediatek,nmbm;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+! grep -q 'root=\/dev\/fit0 rootwait' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+! grep -q 'rootdisk = <&ubi_rootdisk>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 grep -A3 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | grep -q 'ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan'
 grep -A5 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac | grep -q 'get_mac_label'
 
