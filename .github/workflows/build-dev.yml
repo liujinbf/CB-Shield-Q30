@@ -120,6 +120,7 @@ jobs:
           find /workdir/openwrt/bin/targets -type f \( -name "*jcg_q30-pro*factory.bin" -o -name "*jcg_q30-pro*sysupgrade.bin" -o -name "*jcg_q30-pro*.manifest" \) -exec cp -f {} "$OUT_DIR/" \;
           cd "$OUT_DIR"
           ls *.bin >/dev/null
+          grep -q '^kmod-mt7915e ' *.manifest
           sha256sum *.bin > SHA256SUMS
 
       - name: Upload Artifacts

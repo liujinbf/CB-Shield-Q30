@@ -120,6 +120,7 @@ jobs:
           ls *.manifest >/dev/null
           grep -q '^cb-riskcontrol ' *.manifest
           grep -q '^luci-theme-cbshield ' *.manifest
+          grep -q '^kmod-mt7915e ' *.manifest
           sha256sum *.bin > SHA256SUMS
 
       - name: Upload Artifacts

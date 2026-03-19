@@ -15,6 +15,29 @@ sync_dir() {
     cp -a "$src" "$dst"
 }
 
+apply_repo_patch() {
+    local patch_file="$1"
+
+    [ -f "$patch_file" ] || {
+        echo ">>> Missing patch: $patch_file"
+        exit 1
+    }
+
+    if patch -p1 -N --dry-run < "$patch_file" >/dev/null 2>&1; then
+        echo ">>> Applying patch $(basename "$patch_file")"
+        patch -p1 -N < "$patch_file"
+        return 0
+    fi
+
+    if patch -p1 -R --dry-run < "$patch_file" >/dev/null 2>&1; then
+        echo ">>> Patch already applied: $(basename "$patch_file")"
+        return 0
+    fi
+
+    echo ">>> Patch cannot be applied cleanly: $patch_file"
+    exit 1
+}
+
 # Copy custom packages
 sync_dir "$GITHUB_WORKSPACE/luci-theme-cbshield" package/custom/luci-theme-cbshield
 sync_dir "$GITHUB_WORKSPACE/packages/cb-riskcontrol" package/custom/cb-riskcontrol
@@ -49,30 +72,20 @@ EOF
     # Remove fit0 bootarg for third-party U-Boot
     find target/linux/mediatek/dts -name "*jcg*q30*.dts" -exec sed -i 's/root=\/dev\/fit0 rootwait//g' {} +
 
-    # Replace full jcg_q30-pro block to stable BIN output format
-    MK_FILE="target/linux/mediatek/image/filogic.mk"
-    if [ -f "$MK_FILE" ]; then
-        sed -i '/define Device\/jcg_q30-pro/,/endef/c\
-define Device/jcg_q30-pro\
-  DEVICE_VENDOR := JCG\
-  DEVICE_MODEL := Q30 PRO\
-  DEVICE_DTS := mt7981b-jcg-q30-pro\
-  DEVICE_DTS_DIR := ../dts\
-  UBINIZE_OPTS := -E 5\
-  BLOCKSIZE := 128k\
-  PAGESIZE := 2048\
-  IMAGE_SIZE := 114816k\
-  KERNEL_IN_UBI := 1\
-  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware\
-  IMAGES += factory.bin\
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)\
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata\
-endef' "$MK_FILE"
-    fi
+    # Apply Q30 board patch and keep the image recipe aligned with the known-good device definition.
+    apply_repo_patch "$GITHUB_WORKSPACE/patches/mediatek/09-jcg-q30-pro-dts.patch"
+    apply_repo_patch "$GITHUB_WORKSPACE/patches/mediatek/10-jcg-q30-pro-image.patch"
 
     # Keep Wi-Fi enabled by default
     sed -i 's/set ${s}.disabled=1/set ${s}.disabled=0/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || true
 fi
+
+# Validate the final Q30 device definition before defconfig runs.
+grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware'
+grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'IMAGE/factory.bin := append-ubi'
+grep -q 'mediatek,mtd-eeprom = <&factory 0x0>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
+grep -A3 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | grep -q 'ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan'
+grep -A5 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac | grep -q 'get_mac_label'
 
 # Keep compatibility patch minimal
 find ./feeds/kwrt -name "Makefile" -exec sed -i 's/PKG_BUILD_DEPENDS:=.*mbedtls/PKG_BUILD_DEPENDS:=mbedtls/g' {} + 2>/dev/null || true

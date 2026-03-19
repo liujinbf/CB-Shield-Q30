@@ -28,7 +28,7 @@ EOF
 esac
 
 missing=0
-for cmd in bash git make perl python3; do
+for cmd in bash git make patch perl python3; do
     if ! require_cmd "$cmd"; then
         missing=1
     fi
