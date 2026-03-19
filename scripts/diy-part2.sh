@@ -134,8 +134,8 @@ grep -q 'compatible = "fixed-layout";' target/linux/mediatek/dts/mt7981b-jcg-q30
 grep -q 'mediatek,nmbm;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 ! grep -q 'root=\/dev\/fit0 rootwait' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 ! grep -q 'rootdisk = <&ubi_rootdisk>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
-grep -A3 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | grep -q 'ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan'
-grep -A5 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac | grep -q 'get_mac_label'
+grep -A12 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | grep -q 'ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan'
+grep -A8 'jcg,q30-pro' target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac | grep -q 'get_mac_label'
 
 # Keep compatibility patch minimal
 find ./feeds/kwrt -name "Makefile" -exec sed -i 's/PKG_BUILD_DEPENDS:=.*mbedtls/PKG_BUILD_DEPENDS:=mbedtls/g' {} + 2>/dev/null || true
