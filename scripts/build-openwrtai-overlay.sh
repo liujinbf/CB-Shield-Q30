@@ -80,6 +80,10 @@ copy_luci_files() {
     copy_tree \
         "$base/htdocs/luci-static/cbshield" \
         "$OVERLAY_DIR/www/luci-static/cbshield"
+
+    if [ -d "$base/root" ]; then
+        copy_tree "$base/root" "$OVERLAY_DIR"
+    fi
 }
 
 write_manifest() {

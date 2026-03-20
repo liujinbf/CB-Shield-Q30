@@ -1,0 +1,50 @@
+name: Build Kwrt Runtime Bundle
+
+on:
+  push:
+    branches:
+      - main
+      - codex/build-stable-firmware
+    paths:
+      - 'README.md'
+      - 'docs/kwrt-runtime-workflow.md'
+      - 'files/**'
+      - 'luci-theme-cbshield/**'
+      - 'packages/**'
+      - 'scripts/build-openwrtai-overlay.sh'
+      - 'scripts/build-kwrt-runtime-bundle.sh'
+      - 'scripts/cbshield-kwrt-install.sh'
+      - 'scripts/ci-smoke.sh'
+      - 'scripts/kwrt-runtime.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-bundle:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Repository Smoke Test
+        run: |
+          bash scripts/ci-smoke.sh "$GITHUB_WORKSPACE"
+
+      - name: Build Runtime Bundle
+        run: |
+          bash scripts/build-kwrt-runtime-bundle.sh
+
+      - name: Upload Runtime Bundle
+        uses: actions/upload-artifact@v5
+        with:
+          name: CB-Shield-Q30-kwrt-runtime-${{ github.sha }}
+          path: |
+            .work/cbshield-kwrt-runtime.tgz
+            .work/cbshield-kwrt-install.sh
+            .work/kwrt-runtime.manifest
+            .work/kwrt-runtime.SHA256SUMS
+            .work/cbshield-kwrt-runtime-bundle.tgz
