@@ -29,12 +29,12 @@ test ! -e "files/etc/config/cb-riskcontrol"
 
 echo "[smoke] check shell syntax"
 while IFS= read -r f; do
-  sh -n "$f"
+  bash -n "$f"
 done < <(find packages/cb-riskcontrol/files -maxdepth 1 -type f -name "*.sh" | sort)
-sh -n scripts/diy-part1.sh
-sh -n scripts/diy-part2.sh
-sh -n scripts/build-openwrtai-overlay.sh
-sh -n scripts/build-kwrt-runtime-bundle.sh
+bash -n scripts/diy-part1.sh
+bash -n scripts/diy-part2.sh
+bash -n scripts/build-openwrtai-overlay.sh
+bash -n scripts/build-kwrt-runtime-bundle.sh
 sh -n scripts/cbshield-kwrt-install.sh
 sh -n files/etc/uci-defaults/90_v3_optimizations
 sh -n luci-theme-cbshield/root/etc/uci-defaults/80_cbshield-theme
