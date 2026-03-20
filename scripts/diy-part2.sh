@@ -126,8 +126,8 @@ EOF
 fi
 
 # Validate the final Q30 device definition before defconfig runs.
-grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware'
-grep -A12 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'IMAGE/factory.bin := append-ubi'
+grep -A16 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware'
+grep -A16 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'IMAGE/factory.bin := append-ubi'
 grep -A14 '^define Device/jcg_q30-pro' target/linux/mediatek/image/filogic.mk | grep -q 'pad-to 60032k'
 grep -q 'mediatek,mtd-eeprom = <&factory 0x0>;' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
 grep -q 'compatible = "linux,ubi";' target/linux/mediatek/dts/mt7981b-jcg-q30-pro.dts
