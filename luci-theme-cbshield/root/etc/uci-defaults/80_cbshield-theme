@@ -1,10 +1,15 @@
 #!/bin/sh
 # 保持与 Argon 主题兼容，CB-Shield 仅提供业务页面样式
 
-uci -q batch <<'EOF'
-set luci.main.mediaurlbase='/luci-static/argon'
-set luci.themes.Argon='/luci-static/argon'
-commit luci
-EOF
+THEME_PATH='/luci-static/argon'
+[ -d /www/luci-static/argon ] || THEME_PATH='/luci-static/bootstrap'
+
+uci -q set luci.main.mediaurlbase="$THEME_PATH"
+if [ "$THEME_PATH" = '/luci-static/argon' ]; then
+    uci -q set luci.themes.Argon='/luci-static/argon'
+else
+    uci -q delete luci.themes.Argon
+fi
+uci commit luci
 
 exit 0

@@ -42,6 +42,27 @@
 
 ## 构建方式
 
+### Kwrt 运行时叠加
+
+当 `factory.bin` 在不死 U-Boot 恢复页上存在兼容问题时，优先使用这条路线：
+
+1. 先刷已经验证可启动的 `Kwrt/openwrt.ai` Q30 固件
+2. 再安装本仓库生成的 `CB-Shield` 运行时叠加包
+
+生成叠加包：
+
+```bash
+bash scripts/build-kwrt-runtime-bundle.sh
+```
+
+Windows PowerShell：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\kwrt-runtime.ps1 build
+```
+
+完整说明见 [kwrt-runtime-workflow.md](/D:/下载/CB-Shield-Q30/CB-Shield-Q30/docs/kwrt-runtime-workflow.md)。
+
 ### GitHub Actions
 
 可直接触发以下工作流：

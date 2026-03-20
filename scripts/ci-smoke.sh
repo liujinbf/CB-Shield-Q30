@@ -16,7 +16,10 @@ required_files=(
   "luci-theme-cbshield/luasrc/controller/cbshield/index.lua"
   "luci-theme-cbshield/luasrc/view/cbshield/dashboard.htm"
   "luci-theme-cbshield/luasrc/view/cbshield/network_status.htm"
+  "luci-theme-cbshield/root/etc/uci-defaults/80_cbshield-theme"
   "files/www/cb-portal/portal_config.json"
+  "scripts/cbshield-kwrt-install.sh"
+  "scripts/build-kwrt-runtime-bundle.sh"
 )
 for f in "${required_files[@]}"; do
   test -f "$f"
@@ -30,7 +33,11 @@ while IFS= read -r f; do
 done < <(find packages/cb-riskcontrol/files -maxdepth 1 -type f -name "*.sh" | sort)
 sh -n scripts/diy-part1.sh
 sh -n scripts/diy-part2.sh
+sh -n scripts/build-openwrtai-overlay.sh
+sh -n scripts/build-kwrt-runtime-bundle.sh
+sh -n scripts/cbshield-kwrt-install.sh
 sh -n files/etc/uci-defaults/90_v3_optimizations
+sh -n luci-theme-cbshield/root/etc/uci-defaults/80_cbshield-theme
 
 echo "[smoke] check lua syntax"
 if command -v luac >/dev/null 2>&1; then
@@ -72,6 +79,7 @@ grep -q '"api", "upgrade_check"' "$api_file"
 echo "[smoke] check defaults and first-boot wizard"
 grep -q "wizard_required" files/etc/uci-defaults/90_v3_optimizations
 grep -q "CB-Shield-Office" files/etc/uci-defaults/90_v3_optimizations
+grep -q "THEME_PATH='/luci-static/argon'" files/etc/uci-defaults/90_v3_optimizations
 grep -q "office_24g" files/etc/uci-defaults/90_v3_optimizations
 grep -q "office_5g" files/etc/uci-defaults/90_v3_optimizations
 grep -q "cb-healthcheck" files/etc/uci-defaults/90_v3_optimizations
@@ -89,5 +97,7 @@ fi
 echo "[smoke] check config naming"
 grep -q "check_proxy" packages/cb-riskcontrol/files/cb-health.conf
 grep -q "check_proxy" packages/cb-riskcontrol/files/cb-healthcheck.sh
+grep -q "luci-static/bootstrap" luci-theme-cbshield/root/etc/uci-defaults/80_cbshield-theme
+grep -q "cbshield-kwrt-runtime.tgz" scripts/cbshield-kwrt-install.sh
 
 echo "[smoke] done"

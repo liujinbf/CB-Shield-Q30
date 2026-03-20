@@ -1,11 +1,13 @@
 #!/bin/sh
 # CB-Shield first boot defaults (single-network edition)
 
-uci -q batch <<'EOF'
+THEME_PATH='/luci-static/argon'
+[ -d /www/luci-static/argon ] || THEME_PATH='/luci-static/bootstrap'
+
+uci -q batch <<EOF
 set luci.main.lang='zh_cn'
-set luci.main.mediaurlbase='/luci-static/argon'
+set luci.main.mediaurlbase='${THEME_PATH}'
 set luci.main.homepage='admin/cbshield/dashboard'
-set luci.themes.Argon='/luci-static/argon'
 commit luci
 
 set system.@system[0].hostname='CB-Shield-Q30'
@@ -23,6 +25,13 @@ commit network
 set dhcp.@dnsmasq[0].cachesize='1500'
 commit dhcp
 EOF
+
+if [ "$THEME_PATH" = '/luci-static/argon' ]; then
+    uci -q set luci.themes.Argon='/luci-static/argon'
+else
+    uci -q delete luci.themes.Argon
+fi
+uci commit luci
 
 # Generate wireless config and keep a single LAN-backed dual-band network.
 wifi config >/dev/null 2>&1 || wifi detect > /etc/config/wireless
