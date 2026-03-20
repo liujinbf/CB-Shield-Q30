@@ -25,7 +25,13 @@ tar -czf "$DELIVERY_ARCHIVE" \
     "$(basename "$RUNTIME_INSTALLER")" \
     "$(basename "$RUNTIME_MANIFEST")"
 
-sha256sum "$RUNTIME_ARCHIVE" "$RUNTIME_INSTALLER" "$DELIVERY_ARCHIVE" > "$WORK_DIR/kwrt-runtime.SHA256SUMS"
+(
+    cd "$WORK_DIR"
+    sha256sum \
+        "$(basename "$RUNTIME_ARCHIVE")" \
+        "$(basename "$RUNTIME_INSTALLER")" \
+        "$(basename "$DELIVERY_ARCHIVE")"
+) > "$WORK_DIR/kwrt-runtime.SHA256SUMS"
 
 echo "runtime_archive=$RUNTIME_ARCHIVE"
 echo "runtime_installer=$RUNTIME_INSTALLER"
