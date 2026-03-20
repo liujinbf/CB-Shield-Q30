@@ -61,7 +61,7 @@ Windows PowerShell：
 powershell -ExecutionPolicy Bypass -File .\scripts\kwrt-runtime.ps1 build
 ```
 
-完整说明见 [kwrt-runtime-workflow.md](/D:/下载/CB-Shield-Q30/CB-Shield-Q30/docs/kwrt-runtime-workflow.md)。
+完整说明见 [docs/kwrt-runtime-workflow.md](docs/kwrt-runtime-workflow.md)。
 
 ### GitHub Actions
 
@@ -101,11 +101,11 @@ make -j"$(nproc)" V=s
 
 ## 常用脚本
 
-- [local-build.sh](/D:/下载/CB-Shield-Q30/CB-Shield-Q30/scripts/local-build.sh)：本地完整构建
-- [prepare-openwrt.sh](/D:/下载/CB-Shield-Q30/CB-Shield-Q30/scripts/prepare-openwrt.sh)：准备 OpenWrt 源码树
-- [package-preflight.sh](/D:/下载/CB-Shield-Q30/CB-Shield-Q30/scripts/package-preflight.sh)：预编译自定义包
-- [ci-smoke.sh](/D:/下载/CB-Shield-Q30/CB-Shield-Q30/scripts/ci-smoke.sh)：仓库级静态冒烟检查
-- [serial-capture.ps1](/D:/下载/CB-Shield-Q30/CB-Shield-Q30/scripts/serial-capture.ps1)：串口日志抓取
+- [local-build.sh](scripts/local-build.sh)：本地完整构建
+- [prepare-openwrt.sh](scripts/prepare-openwrt.sh)：准备 OpenWrt 源码树
+- [package-preflight.sh](scripts/package-preflight.sh)：预编译自定义包
+- [ci-smoke.sh](scripts/ci-smoke.sh)：仓库级静态冒烟检查
+- [serial-capture.ps1](scripts/serial-capture.ps1)：串口日志抓取
 
 ## 首次刷机后建议检查
 
