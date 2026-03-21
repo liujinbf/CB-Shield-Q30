@@ -1,0 +1,37 @@
+name: Build Kwrt Passwall Firmware
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-kwrt-passwall:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      REPO_DIR: ${{ github.workspace }}
+      WORKDIR_ROOT: /workdir
+      OPENWRT_DIR: /workdir/openwrt
+      REPO_URL: https://github.com/openwrt/openwrt.git
+      REPO_BRANCH: openwrt-25.12
+      TARGET_NAME: mediatek_filogic
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Firmware
+        run: |
+          chmod +x scripts/build-kwrt-passwall-in-docker.sh
+          bash scripts/build-kwrt-passwall-in-docker.sh build
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: CB-Shield-Q30-kwrt-passwall-${{ github.sha }}
+          path: |
+            artifacts/kwrt-passwall-firmware
+            logs/build-kwrt-passwall-docker.log
