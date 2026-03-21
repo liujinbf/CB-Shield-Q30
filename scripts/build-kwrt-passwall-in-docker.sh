@@ -170,11 +170,11 @@ prepare_kwrt_tree() {
 
   find "devices/${TARGET_NAME}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 \
     | sort -z \
-    | xargs -r -0 -I % -n 1 sh -c "patch -d './' -R --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i '%'"
+    | xargs -r -0 -I % -n 1 sh -c "patch -d './' --batch -R --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i '%'"
 
   find "devices/${TARGET_NAME}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 \
     | sort -z \
-    | xargs -r -0 -I % -n 1 sh -c "patch -d './' --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i '%'"
+    | xargs -r -0 -I % -n 1 sh -c "patch -d './' --batch -N --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i '%'"
 }
 
 inject_cbshield_payload() {
