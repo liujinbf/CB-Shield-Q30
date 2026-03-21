@@ -136,7 +136,6 @@ prepare_kwrt_tree() {
 
   cp -rf devices/common/. .
   cp -rf devices/${TARGET_NAME}/. .
-  cp -rf devices .
 
   export -f git_clone_path
   export REPO_TOKEN="${REPO_TOKEN:-}"
