@@ -15,8 +15,8 @@ jobs:
     timeout-minutes: 360
     env:
       REPO_DIR: ${{ github.workspace }}
-      WORKDIR_ROOT: /workdir
-      OPENWRT_DIR: /workdir/openwrt
+      WORKDIR_ROOT: ${{ github.workspace }}/.workdir
+      OPENWRT_DIR: ${{ github.workspace }}/.workdir/openwrt
       REPO_URL: https://github.com/openwrt/openwrt.git
       REPO_BRANCH: openwrt-25.12
       TARGET_NAME: mediatek_filogic
