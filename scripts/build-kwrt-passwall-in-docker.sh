@@ -13,6 +13,9 @@ OPENWRT_DIR="${OPENWRT_DIR:-$WORKDIR_ROOT/openwrt}"
 REPO_URL="${REPO_URL:-https://github.com/openwrt/openwrt.git}"
 REPO_BRANCH="${REPO_BRANCH:-openwrt-25.12}"
 TARGET_NAME="${TARGET_NAME:-mediatek_filogic}"
+KWRT_SRC_DIR="${KWRT_SRC_DIR:-${REPO_DIR}/Kwrt-src}"
+KWRT_SRC_URL="${KWRT_SRC_URL:-https://github.com/kiddin9/Kwrt.git}"
+KWRT_SRC_BRANCH="${KWRT_SRC_BRANCH:-25.12}"
 LOG_FILE="${REPO_DIR}/logs/build-kwrt-passwall-docker.log"
 OUT_DIR="${REPO_DIR}/artifacts/kwrt-passwall-firmware"
 
@@ -65,6 +68,21 @@ normalize_unix_files() {
   done
 }
 
+prepare_kwrt_source_dir() {
+  if [ -d "${KWRT_SRC_DIR}/devices/common" ] && [ -d "${KWRT_SRC_DIR}/devices/${TARGET_NAME}" ]; then
+    return 0
+  fi
+
+  KWRT_SRC_DIR="${WORKDIR_ROOT}/kwrt-src"
+  rm -rf "${KWRT_SRC_DIR}"
+  git clone --depth 1 -b "${KWRT_SRC_BRANCH}" --filter=blob:none --sparse "${KWRT_SRC_URL}" "${KWRT_SRC_DIR}"
+  (
+    cd "${KWRT_SRC_DIR}"
+    git sparse-checkout init --cone
+    git sparse-checkout set devices/common "devices/${TARGET_NAME}"
+  )
+}
+
 git_clone_path() {
   trap 'rm -rf "$tmpdir"' EXIT
   local branch="$1"
@@ -103,10 +121,11 @@ git_clone_path() {
 
 prepare_kwrt_tree() {
   cd "${OPENWRT_DIR}"
+  prepare_kwrt_source_dir
 
   mkdir -p devices
-  cp -rf "${REPO_DIR}/Kwrt-src/devices/common" devices/
-  cp -rf "${REPO_DIR}/Kwrt-src/devices/${TARGET_NAME}" devices/
+  cp -rf "${KWRT_SRC_DIR}/devices/common" devices/
+  cp -rf "${KWRT_SRC_DIR}/devices/${TARGET_NAME}" devices/
 
   normalize_unix_files \
     devices/common/diy.sh \
