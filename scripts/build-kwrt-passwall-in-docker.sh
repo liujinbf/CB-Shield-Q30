@@ -29,6 +29,7 @@ install_build_deps() {
     return 0
   fi
 
+  local sudo_cmd=""
   local packages=(
     build-essential clang flex bison g++ gawk gcc-multilib g++-multilib
     gettext git libncurses-dev libssl-dev python3-setuptools rsync swig
@@ -39,7 +40,11 @@ install_build_deps() {
   local installable=()
   local package
 
-  apt-get -qq update
+  if command -v sudo >/dev/null 2>&1; then
+    sudo_cmd="sudo"
+  fi
+
+  ${sudo_cmd} apt-get -qq update
 
   for package in "${packages[@]}"; do
     if apt-cache show "$package" >/dev/null 2>&1; then
@@ -49,7 +54,7 @@ install_build_deps() {
     fi
   done
 
-  apt-get -qq install -y "${installable[@]}"
+  ${sudo_cmd} apt-get -qq install -y "${installable[@]}"
 }
 
 normalize_unix_files() {
