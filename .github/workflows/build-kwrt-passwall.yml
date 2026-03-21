@@ -28,7 +28,16 @@ jobs:
       - name: Build Firmware
         run: |
           chmod +x scripts/build-kwrt-passwall-in-docker.sh
-          bash scripts/build-kwrt-passwall-in-docker.sh build
+          bash -x scripts/build-kwrt-passwall-in-docker.sh build
+
+      - name: Dump Build Log
+        if: failure()
+        run: |
+          if [ -f logs/build-kwrt-passwall-docker.log ]; then
+            tail -n 200 logs/build-kwrt-passwall-docker.log
+          else
+            echo "build log missing"
+          fi
 
       - name: Upload Artifacts
         if: always()
