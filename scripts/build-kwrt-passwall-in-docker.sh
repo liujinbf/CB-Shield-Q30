@@ -153,6 +153,13 @@ prepare_kwrt_tree() {
     bash "devices/${TARGET_NAME}/diy.sh"
   fi
 
+  local safe_revision
+  safe_revision="$(date +%Y%m%d)"
+  sed -i \
+    -e "/\(# \)\?REVISION:=/c\\REVISION:=${safe_revision}" \
+    -e '/VERSION_CODE:=/c\\VERSION_CODE:=$(REVISION)' \
+    include/version.mk
+
   cp -Rf ./diy/* ./ || true
 
   cp -rn devices/common/patches "devices/${TARGET_NAME}/" || true
