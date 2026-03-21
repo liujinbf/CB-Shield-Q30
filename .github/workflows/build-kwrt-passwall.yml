@@ -1,6 +1,9 @@
 name: Build Kwrt Passwall Firmware
 
 on:
+  push:
+    branches:
+      - codex/kwrt-passwall-firmware
   workflow_dispatch:
 
 permissions:
