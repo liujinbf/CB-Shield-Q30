@@ -68,6 +68,33 @@ normalize_unix_files() {
   done
 }
 
+apply_patch_file() {
+  local patch_mode="$1"
+  local patch_file="$2"
+  local output
+  local status=0
+
+  if [ "$patch_mode" = "revert" ]; then
+    output="$(patch -d './' --batch -R --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i "$patch_file" 2>&1)" || status=$?
+  else
+    output="$(patch -d './' --batch -N --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i "$patch_file" 2>&1)" || status=$?
+  fi
+
+  printf '%s\n' "$output"
+
+  if [ "$status" -eq 0 ]; then
+    return 0
+  fi
+
+  if printf '%s\n' "$output" | grep -q 'Reversed (or previously applied) patch detected'; then
+    echo "[patch] skip already-applied patch: $patch_file"
+    return 0
+  fi
+
+  echo "[patch] failed: $patch_file"
+  return "$status"
+}
+
 prepare_kwrt_source_dir() {
   if [ -d "${KWRT_SRC_DIR}/devices/common" ] && [ -d "${KWRT_SRC_DIR}/devices/${TARGET_NAME}" ]; then
     return 0
@@ -168,13 +195,13 @@ prepare_kwrt_tree() {
     git apply "devices/${TARGET_NAME}"/patches/*.bin.patch
   fi
 
-  find "devices/${TARGET_NAME}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 \
-    | sort -z \
-    | xargs -r -0 -I % -n 1 sh -c "patch -d './' --batch -R --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i '%'"
+  while IFS= read -r -d '' patch_file; do
+    apply_patch_file revert "$patch_file"
+  done < <(find "devices/${TARGET_NAME}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 | sort -z)
 
-  find "devices/${TARGET_NAME}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 \
-    | sort -z \
-    | xargs -r -0 -I % -n 1 sh -c "patch -d './' --batch -N --no-backup-if-mismatch -p1 -F 1 --ignore-whitespace -i '%'"
+  while IFS= read -r -d '' patch_file; do
+    apply_patch_file forward "$patch_file"
+  done < <(find "devices/${TARGET_NAME}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 | sort -z)
 }
 
 inject_cbshield_payload() {
