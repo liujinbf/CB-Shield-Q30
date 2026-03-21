@@ -180,6 +180,8 @@ prepare_kwrt_tree() {
     bash "devices/${TARGET_NAME}/diy.sh"
   fi
 
+  sed -i 's/\<luci-app-fan\>//g' include/target.mk
+
   local safe_revision
   safe_revision="$(date +%Y%m%d)"
   sed -i \
