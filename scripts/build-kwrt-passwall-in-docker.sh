@@ -31,16 +31,11 @@ install_build_deps() {
 
   apt-get -qq update
   apt-get -qq install -y \
-    ack antlr3 asciidoc autoconf automake autopoint binutils bison \
-    build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler \
-    ecj fastjar flex gawk gettext gcc-multilib g++-multilib git gnutls-dev \
-    gperf haveged help2man intltool jq lib32gcc-s1 libc6-dev-i386 libelf-dev \
-    libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
-    libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev \
-    libtool lld llvm lrzsz make mkisofs msmtp nano ninja-build p7zip p7zip-full \
-    patch pkgconf python3 python3-pip python3-pyelftools python3-setuptools \
-    qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs \
-    unzip upx-ucl vim wget xmlto xxd zlib1g-dev zstd
+    build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+    gettext git libncurses5-dev libssl-dev python3-setuptools rsync swig \
+    unzip zlib1g-dev file wget llvm python3-pyelftools libpython3-dev \
+    aria2 jq qemu-utils ccache rename libelf-dev device-tree-compiler \
+    libgmp3-dev libmpc-dev libfuse-dev curl ca-certificates patch
 }
 
 normalize_unix_files() {
