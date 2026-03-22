@@ -104,5 +104,6 @@ echo "[smoke] check kwrt passwall profile is rust-free"
 grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Client is not set$" profiles/stable.config
 grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadow_TLS is not set$" profiles/stable.config
 grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_tuic_client is not set$" profiles/stable.config
+grep -q "rm -rf feeds/kiddin9/webd feeds/kiddin9/luci-app-webd" scripts/build-kwrt-passwall-in-docker.sh
 
 echo "[smoke] done"

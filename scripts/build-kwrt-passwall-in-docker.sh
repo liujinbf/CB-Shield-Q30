@@ -162,6 +162,11 @@ prepare_kwrt_tree() {
     "${REPO_DIR}/scripts/prepare-openwrt.sh" \
     "${REPO_DIR}/scripts/diy-part2.sh"
 
+  # Kwrt 的公共 diy 会在未选定目标架构前执行 scripts/feeds install -a。
+  # webd 系列 Makefile 在这个阶段会直接报 Unsupported ARCH/BOARD，需提前排除。
+  sed -i '/\.\/scripts\/feeds update -a/a rm -rf feeds/kiddin9/webd feeds/kiddin9/luci-app-webd' \
+    devices/common/diy.sh
+
   cp -rf devices/common/. .
   cp -rf devices/${TARGET_NAME}/. .
 
