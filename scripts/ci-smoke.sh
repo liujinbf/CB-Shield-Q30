@@ -100,4 +100,9 @@ grep -q "check_proxy" packages/cb-riskcontrol/files/cb-healthcheck.sh
 grep -q "luci-static/bootstrap" luci-theme-cbshield/root/etc/uci-defaults/80_cbshield-theme
 grep -q "cbshield-kwrt-runtime.tgz" scripts/cbshield-kwrt-install.sh
 
+echo "[smoke] check kwrt passwall profile is rust-free"
+grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Client is not set$" profiles/stable.config
+grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadow_TLS is not set$" profiles/stable.config
+grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_tuic_client is not set$" profiles/stable.config
+
 echo "[smoke] done"
