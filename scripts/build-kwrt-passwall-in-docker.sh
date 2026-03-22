@@ -27,6 +27,11 @@ export DEBIAN_FRONTEND=noninteractive
 export GITHUB_WORKSPACE="${REPO_DIR}"
 export FORCE_UNSAFE_CONFIGURE=1
 unset CI || true
+unset GITHUB_ACTIONS || true
+unset GITHUB_RUN_ID || true
+unset GITHUB_RUN_NUMBER || true
+unset GITHUB_WORKFLOW || true
+unset GITHUB_JOB || true
 
 install_build_deps() {
   if ! command -v apt-get >/dev/null 2>&1; then
