@@ -101,10 +101,16 @@ grep -q "luci-static/bootstrap" luci-theme-cbshield/root/etc/uci-defaults/80_cbs
 grep -q "cbshield-kwrt-runtime.tgz" scripts/cbshield-kwrt-install.sh
 
 echo "[smoke] check kwrt passwall profile is rust-free"
+grep -q "^CONFIG_PACKAGE_luci-app-passwall=y$" profiles/stable.config
 grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Client is not set$" profiles/stable.config
 grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadow_TLS is not set$" profiles/stable.config
 grep -q "^# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_tuic_client is not set$" profiles/stable.config
 grep -q "rm -rf feeds/kiddin9/webd feeds/kiddin9/luci-app-webd" scripts/build-kwrt-passwall-in-docker.sh
-grep -q "^unset GITHUB_ACTIONS || true$" scripts/build-kwrt-passwall-in-docker.sh
+grep -q "^sanitize_ci_env() {$" scripts/build-kwrt-passwall-in-docker.sh
+grep -q 'CI|GITHUB_\*|ACTIONS_\*|RUNNER_\*' scripts/build-kwrt-passwall-in-docker.sh
+grep -q 'devices/\${TARGET_NAME}/patches/default-packages.patch' scripts/build-kwrt-passwall-in-docker.sh
+grep -q 'devices/\${TARGET_NAME}/patches/dnsmasq.patch' scripts/build-kwrt-passwall-in-docker.sh
+grep -q 'devices/\${TARGET_NAME}/patches/firewall.patch' scripts/build-kwrt-passwall-in-docker.sh
+grep -q 'devices/\${TARGET_NAME}/patches/nftables.patch' scripts/build-kwrt-passwall-in-docker.sh
 
 echo "[smoke] done"

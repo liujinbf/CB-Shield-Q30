@@ -23,15 +23,21 @@ mkdir -p "${REPO_DIR}/logs" "${REPO_DIR}/artifacts" "${WORKDIR_ROOT}"
 : > "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
+sanitize_ci_env() {
+  local env_name
+  while IFS='=' read -r env_name _; do
+    case "${env_name}" in
+      CI|GITHUB_*|ACTIONS_*|RUNNER_*)
+        unset "${env_name}" || true
+        ;;
+    esac
+  done < <(env)
+}
+
 export DEBIAN_FRONTEND=noninteractive
-export GITHUB_WORKSPACE="${REPO_DIR}"
 export FORCE_UNSAFE_CONFIGURE=1
-unset CI || true
-unset GITHUB_ACTIONS || true
-unset GITHUB_RUN_ID || true
-unset GITHUB_RUN_NUMBER || true
-unset GITHUB_WORKFLOW || true
-unset GITHUB_JOB || true
+sanitize_ci_env
+export GITHUB_WORKSPACE="${REPO_DIR}"
 
 install_build_deps() {
   if ! command -v apt-get >/dev/null 2>&1; then
@@ -167,8 +173,8 @@ prepare_kwrt_tree() {
     "${REPO_DIR}/scripts/prepare-openwrt.sh" \
     "${REPO_DIR}/scripts/diy-part2.sh"
 
-  # Kwrt 的公共 diy 会在未选定目标架构前执行 scripts/feeds install -a。
-  # webd 系列 Makefile 在这个阶段会直接报 Unsupported ARCH/BOARD，需提前排除。
+  # Kwrt ??? diy ???????????? scripts/feeds install -a?
+  # webd ?? Makefile ????????? Unsupported ARCH/BOARD,??????
   sed -i '/\.\/scripts\/feeds update -a/a rm -rf feeds/kiddin9/webd feeds/kiddin9/luci-app-webd' \
     devices/common/diy.sh
 
@@ -203,6 +209,12 @@ prepare_kwrt_tree() {
   cp -Rf ./diy/* ./ || true
 
   cp -rn devices/common/patches "devices/${TARGET_NAME}/" || true
+  # Skip Kwrt router-stack patches that conflict with OpenWrt 25.12 apk packaging.
+  rm -f \
+    "devices/${TARGET_NAME}/patches/default-packages.patch" \
+    "devices/${TARGET_NAME}/patches/dnsmasq.patch" \
+    "devices/${TARGET_NAME}/patches/firewall.patch" \
+    "devices/${TARGET_NAME}/patches/nftables.patch"
 
   if compgen -G "devices/${TARGET_NAME}/patches/*.bin.patch" >/dev/null; then
     git apply "devices/${TARGET_NAME}"/patches/*.bin.patch
